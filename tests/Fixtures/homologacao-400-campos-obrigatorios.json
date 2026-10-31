@@ -1,0 +1,64 @@
+{
+    "PerfilVipp": {
+        "Usuario": "onbiws",
+        "Token": "112233",
+        "IdPerfil": "9363"
+    },
+    "Volumes": [
+        {
+            "Peso": "1",
+            "Altura": "1",
+            "Largura": "10",
+            "Comprimento": "15",
+            "QuantidadeVolumes": "",
+            "DeclaracaoConteudo": {
+                "ItemConteudo": [
+                    {
+                        "Quantidade": "1"
+                    }
+                ]
+            },
+            "Categoria": 0
+        }
+    ],
+    "ListaErros": [
+        {
+            "TipoErro": 2,
+            "DescricaoTipoErro": "Validacao",
+            "CodigoErro": 1310,
+            "Campo": "Nome",
+            "Descricao": "É Obrigatório Informar o Nome Destinatário!"
+        },
+        {
+            "TipoErro": 2,
+            "DescricaoTipoErro": "Validacao",
+            "CodigoErro": 1320,
+            "Campo": "Endereco",
+            "Descricao": "É Obrigatório Informar o Endereco do Destinatário!"
+        },
+        {
+            "TipoErro": 2,
+            "DescricaoTipoErro": "Validacao",
+            "CodigoErro": 1330,
+            "Campo": "Cep",
+            "Descricao": "É Obrigatório Informar o CEP do Destinatário!"
+        },
+        {
+            "TipoErro": 2,
+            "DescricaoTipoErro": "Validacao",
+            "CodigoErro": 2200,
+            "Campo": "DescricaoConteudo",
+            "Descricao": "É Obrigatório Informar a Descrição do Conteudo Para o item 1 da Lista!"
+        },
+        {
+            "TipoErro": 2,
+            "DescricaoTipoErro": "Validacao",
+            "CodigoErro": 2222,
+            "Campo": "Valor",
+            "Descricao": "O Valor da Declaração de Conteúdo É Obrigatóriamente Numérico Para o item 1 da Lista!"
+        }
+    ],
+    "StPostagem": 0,
+    "IdStatusPostagem": 0,
+    "StatusPostagem": "Invalida"
+}

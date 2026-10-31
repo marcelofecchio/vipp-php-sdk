@@ -1,0 +1,62 @@
+{
+    "PerfilVipp": {
+        "Usuario": "onbiws",
+        "Token": "112233",
+        "IdPerfil": "9363"
+    },
+    "ContratoEct": {
+        "NrContrato": "35",
+        "NrCartao": "35"
+    },
+    "Destinatario": {
+        "Nome": "Teste de WebService",
+        "Endereco": "R Conselheiro Nebias",
+        "EntregaNoVizinho": "",
+        "Numero": "263",
+        "Complemento": "7 Andar",
+        "Bairro": "Campos Eliseos",
+        "Cidade": "Sao Paulo",
+        "UF": "SP",
+        "Cep": "01203001"
+    },
+    "Servico": {
+        "ServicoECT": "4162"
+    },
+    "Volumes": [
+        {
+            "IdConhecimento": 663471935,
+            "Peso": "1600",
+            "Altura": "4",
+            "Largura": "11",
+            "Comprimento": "16",
+            "CodigoBarraVolume": "PED-123456",
+            "PosicaoVolume": "1",
+            "QuantidadeVolumes": "",
+            "DeclaracaoConteudo": {
+                "ItemConteudo": [
+                    {
+                        "DescricaoConteudo": "Camiseta algodao",
+                        "Quantidade": "2",
+                        "Valor": "125,98"
+                    }
+                ],
+                "DocumentoRemetente": "03998581000190",
+                "DocumentoDestinatario": "08532247799"
+            },
+            "ValorDeclarado": "150.00",
+            "AdicionaisVolume": "AR VD",
+            "CodigoAdicionaisVolume": "01 19",
+            "Etiqueta": "SQ000352886BR",
+            "ValorTarifa": "15,48",
+            "ValorAdicionais": "12,99",
+            "ValorPostagem": "28,47",
+            "StEntregaSabado": "1",
+            "StEntregaDomiciliar": "1",
+            "DiasUteisPrazo": "1",
+            "Categoria": 200
+        }
+    ],
+    "StPostagem": 1,
+    "IdStatusPostagem": 1,
+    "StatusPostagem": "Valida"
+}

@@ -1,0 +1,57 @@
+{
+    "PerfilVipp": {
+        "Usuario": "onbiws",
+        "Token": "112233",
+        "IdPerfil": "9363"
+    },
+    "Destinatario": {
+        "Nome": "Teste de WebService",
+        "Endereco": "R Conselheiro Nebias",
+        "EntregaNoVizinho": "",
+        "Numero": "263",
+        "Complemento": "7 Andar",
+        "Bairro": "Campos Eliseos",
+        "Cidade": "Sao Paulo",
+        "UF": "SP",
+        "Cep": "01203001"
+    },
+    "NotasFiscais": [
+        {
+            "DtNotaFiscal": "15072026",
+            "NrNotaFiscal": "1"
+        }
+    ],
+    "Volumes": [
+        {
+            "Peso": "1600",
+            "Altura": "4",
+            "Largura": "11",
+            "Comprimento": "16",
+            "QuantidadeVolumes": "",
+            "DeclaracaoConteudo": {
+                "ItemConteudo": [
+                    {
+                        "DescricaoConteudo": "Camiseta algodao",
+                        "Quantidade": "2",
+                        "Valor": "125,98"
+                    }
+                ],
+                "DocumentoRemetente": "03998581000190",
+                "DocumentoDestinatario": "08532247799"
+            },
+            "Categoria": 0
+        }
+    ],
+    "ListaErros": [
+        {
+            "TipoErro": 2,
+            "DescricaoTipoErro": "Validacao",
+            "CodigoErro": 1500,
+            "Campo": "DtNotaFiscal",
+            "Descricao": "Data da Nota Fiscal é Inválida! Deve Estar no Formato DD/MM/YYYY ou MM/DD/YYYY"
+        }
+    ],
+    "StPostagem": 0,
+    "IdStatusPostagem": 0,
+    "StatusPostagem": "Invalida"
+}
