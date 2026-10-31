@@ -1,0 +1,24 @@
+# Segredos — nunca versionar
+.env
+.env.*
+!.env.example
+credentials.txt
+
+# Postman: ambientes com valores reais exportados localmente
+postman/*.local.postman_environment.json
+
+# Dependências e artefatos
+/vendor/
+composer.lock
+.phpunit.cache/
+.phpunit.result.cache
+.php-cs-fixer.cache
+coverage/
+build/
+
+# IDE / SO
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
