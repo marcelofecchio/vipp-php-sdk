@@ -1,0 +1,338 @@
+{
+    "info": {
+        "name": "ViPP — Web Service de Postagem (vipp-php-sdk)",
+        "description": "Gerada por postman/gerar-colecao.php a partir dos DTOs do marcelofecchio/vipp-php-sdk.\n\nATENÇÃO: as requisições válidas criam postagens reais no ambiente configurado. Use o ambiente de homologação.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "01 Postagem válida (ViPP gera a etiqueta)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('StatusPostagem = Valida', () => pm.expect(corpo.StatusPostagem).to.eql('Valida'));",
+                            "const volume = corpo.Volumes[0];",
+                            "pm.test('Etiqueta no formato dos Correios', () => pm.expect(volume.Etiqueta).to.match(/^[A-Z]{2}\\d{9}BR$/));",
+                            "pm.test('Valores e prazo presentes', () => { pm.expect(volume.ValorPostagem).to.be.a('string'); pm.expect(volume.DiasUteisPrazo).to.be.a('string'); });",
+                            "pm.collectionVariables.set('ultimaEtiqueta', volume.Etiqueta);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "description": "Payload completo montado pelo SDK: destinatário, NF, volume com declaração de conteúdo, valor declarado e AR.",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Accept-Encoding",
+                        "value": "UTF-8"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Servico\": {\n        \"ServicoECT\": \"03298\"\n    },\n    \"NotasFiscais\": [\n        {\n            \"DtNotaFiscal\": \"15/07/2026\",\n            \"SerieNotaFiscal\": \"1\",\n            \"NrNotaFiscal\": \"49906\",\n            \"VlrTotalNota\": \"251,96\"\n        }\n    ],\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/middleware/PostarObjeto",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "middleware",
+                        "PostarObjeto"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "02 Postagem com etiqueta já gerada nos Correios",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('StatusPostagem = Valida', () => pm.expect(corpo.StatusPostagem).to.eql('Valida'));",
+                            "const enviada = pm.environment.get('etiquetaInformada') || pm.collectionVariables.get('etiquetaInformada');",
+                            "const registrada = corpo.Volumes[0].Etiqueta;",
+                            "console.log(registrada === enviada ? 'ViPP manteve a etiqueta enviada: ' + enviada : 'ViPP registrou OUTRA etiqueta: enviada ' + enviada + ', registrada ' + registrada);",
+                            "pm.test('Etiqueta registrada no formato dos Correios', () => pm.expect(registrada).to.match(/^[A-Z]{2}\\d{9}BR$/));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "description": "Caso de uso do marcelo-envios (Nota 16). Na homologação (perfil 9363) o ViPP ignora a etiqueta e gera outra; o teste registra a divergência no console.",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Accept-Encoding",
+                        "value": "UTF-8"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-COM-ETIQUETA\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\",\n            \"Etiqueta\": \"{{etiquetaInformada}}\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/middleware/PostarObjeto",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "middleware",
+                        "PostarObjeto"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "03 Campos obrigatórios ausentes (400)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('StatusPostagem = Invalida', () => pm.expect(corpo.StatusPostagem).to.eql('Invalida'));",
+                            "pm.test('ListaErros contém o erro 1310', () => pm.expect(corpo.ListaErros.map(e => e.CodigoErro)).to.include(1310));",
+                            "pm.test('Erros de endereço e CEP', () => pm.expect(pm.response.json().ListaErros.map(e => e.CodigoErro)).to.include.members([1320, 1330]));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "description": "Destinatário vazio e item sem descrição: erros 1310, 1320, 1330 e 2200.",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Accept-Encoding",
+                        "value": "UTF-8"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {},\n    \"Volumes\": [\n        {\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"\",\n                        \"Quantidade\": 1,\n                        \"Valor\": \"\"\n                    }\n                ]\n            }\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/middleware/PostarObjeto",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "middleware",
+                        "PostarObjeto"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "04 Etiqueta com dígito verificador inválido (400 / 2002)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('StatusPostagem = Invalida', () => pm.expect(corpo.StatusPostagem).to.eql('Invalida'));",
+                            "pm.test('ListaErros contém o erro 2002', () => pm.expect(corpo.ListaErros.map(e => e.CodigoErro)).to.include(2002));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "description": "Nota 16.",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Accept-Encoding",
+                        "value": "UTF-8"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\",\n            \"Etiqueta\": \"SQ123456786BR\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/middleware/PostarObjeto",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "middleware",
+                        "PostarObjeto"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "05 Data da NF sem barras (400 / 1500)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('StatusPostagem = Invalida', () => pm.expect(corpo.StatusPostagem).to.eql('Invalida'));",
+                            "pm.test('ListaErros contém o erro 1500', () => pm.expect(corpo.ListaErros.map(e => e.CodigoErro)).to.include(1500));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "description": "A Nota 8 do PDF cita DDMMAAAA, mas o ViPP exige DD/MM/AAAA.",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Accept-Encoding",
+                        "value": "UTF-8"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\"\n        }\n    ],\n    \"NotasFiscais\": [\n        {\n            \"DtNotaFiscal\": \"15072026\",\n            \"NrNotaFiscal\": \"49906\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/middleware/PostarObjeto",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "middleware",
+                        "PostarObjeto"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "06 Credenciais inválidas (401 / 1030)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('StatusPostagem = Invalida', () => pm.expect(corpo.StatusPostagem).to.eql('Invalida'));",
+                            "pm.test('ListaErros contém o erro 1030', () => pm.expect(corpo.ListaErros.map(e => e.CodigoErro)).to.include(1030));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "description": "Token errado: HTTP 401. No SDK vira AutenticacaoException.",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Accept-Encoding",
+                        "value": "UTF-8"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"token-invalido\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Servico\": {\n        \"ServicoECT\": \"03298\"\n    },\n    \"NotasFiscais\": [\n        {\n            \"DtNotaFiscal\": \"15/07/2026\",\n            \"SerieNotaFiscal\": \"1\",\n            \"NrNotaFiscal\": \"49906\",\n            \"VlrTotalNota\": \"251,96\"\n        }\n    ],\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/middleware/PostarObjeto",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "middleware",
+                        "PostarObjeto"
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "etiquetaInformada",
+            "value": "AA123456785BR"
+        },
+        {
+            "key": "ultimaEtiqueta",
+            "value": ""
+        }
+    ]
+}
