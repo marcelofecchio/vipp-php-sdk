@@ -8,6 +8,7 @@ use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Postagem\ContratoEct;
 use MarceloFecchio\Vipp\Postagem\DeclaracaoConteudo;
 use MarceloFecchio\Vipp\Postagem\Destinatario;
+use MarceloFecchio\Vipp\Postagem\ItemConteudo;
 use MarceloFecchio\Vipp\Postagem\NotaFiscal;
 use MarceloFecchio\Vipp\Postagem\Postagem;
 use MarceloFecchio\Vipp\Postagem\Volume;
@@ -27,8 +28,8 @@ final class ValidadorPostagem
         'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
     ];
 
-    /** Letras (com acento), dígitos, espaço e pontuação simples. Emoji e símbolos são recusados pela SEFAZ. */
-    private const string DESCRICAO_PERMITIDA = '/^[\p{L}\p{N} .,\-\/()%:;+]+$/u';
+    /** Emoji e símbolos são recusados pela SEFAZ; ver ItemConteudo::CARACTERES_PERMITIDOS. */
+    private const string DESCRICAO_PERMITIDA = '/^['.ItemConteudo::CARACTERES_PERMITIDOS.']+$/u';
 
     private const int LIMITE_ITEM_CENTAVOS = 10_000_000;
 
@@ -38,6 +39,12 @@ final class ValidadorPostagem
     private array $violacoes = [];
 
     /**
+     * @param bool $exigirContrato exige `ContratoEct` com `NrContrato` e `NrCartao`. Em produção, perfis podem
+     *                             recusar a postagem sem eles (erro 91), embora o manual os trate como opcionais.
+     */
+    public function __construct(private readonly bool $exigirContrato = false) {}
+
+    /**
      * @return list<Violacao>
      */
     public function validar(Postagem $postagem): array
@@ -45,9 +52,7 @@ final class ValidadorPostagem
         $this->violacoes = [];
 
         $this->destinatario($postagem->destinatario);
-        if ($postagem->contratoEct !== null) {
-            $this->contrato($postagem->contratoEct);
-        }
+        $this->contrato($postagem->contratoEct);
         $this->maxDigitos('Servico.ServicoECT', $postagem->servicoEct, 6);
         foreach ($postagem->notasFiscais as $i => $nf) {
             $this->notaFiscal("NotasFiscais[{$i}]", $nf);
@@ -102,8 +107,26 @@ final class ValidadorPostagem
         }
     }
 
-    private function contrato(ContratoEct $c): void
+    private function contrato(?ContratoEct $c): void
     {
+        if ($this->exigirContrato) {
+            if ($c?->nrContrato === null) {
+                $this->violar('ContratoEct.NrContrato', 'obrigatório (exigirContrato ligado): informe o número do contrato dos Correios.');
+            }
+            if ($c?->nrCartao === null) {
+                $this->violar('ContratoEct.NrCartao', 'obrigatório (exigirContrato ligado): informe o cartão de postagem dos Correios.');
+            }
+        }
+
+        if ($c === null) {
+            return;
+        }
+
+        // Observado na homologação: cartão sem contrato dá o erro 1100 ("O Número do Cartão É Obrigatóriamente Numérico!").
+        if ($c->nrCartao !== null && $c->nrContrato === null && !$this->exigirContrato) {
+            $this->violar('ContratoEct.NrContrato', 'informe o contrato junto com o cartão de postagem.');
+        }
+
         $this->maxDigitos('ContratoEct.NrContrato', $c->nrContrato, 10);
         $this->maxDigitos('ContratoEct.CodigoAdministrativo', $c->codigoAdministrativo, 8);
         $this->maxDigitos('ContratoEct.NrCartao', $c->nrCartao, 10);

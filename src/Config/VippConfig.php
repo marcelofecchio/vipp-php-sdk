@@ -23,12 +23,15 @@ final readonly class VippConfig
     /**
      * @param float $timeout segundos; usado quando o SDK cria o cliente HTTP (Guzzle). Clientes injetados usam a própria configuração.
      * @param bool $validarAntesDeEnviar roda o ValidadorPostagem antes de cada envio
+     * @param bool $exigirContrato exige `ContratoEct` com `NrContrato` e `NrCartao` na validação local.
+     *                             Recomendado em produção: perfis podem recusar a postagem sem eles (erro 91).
      */
     public function __construct(
         public PerfilVipp $perfil,
         string $baseUrl = self::URL_PADRAO,
         public float $timeout = 30.0,
         public bool $validarAntesDeEnviar = true,
+        public bool $exigirContrato = false,
     ) {
         $baseUrl = rtrim(trim($baseUrl), '/');
         if (filter_var($baseUrl, FILTER_VALIDATE_URL) === false || preg_match('#^https?://#i', $baseUrl) !== 1) {
@@ -54,7 +57,7 @@ final readonly class VippConfig
 
     /**
      * Monta a partir de um array no formato de `config/vipp.php` (chaves `usuario`, `token`, `id_perfil`,
-     * `base_url`, `timeout`, `validar_antes_de_enviar`).
+     * `base_url`, `timeout`, `validar_antes_de_enviar`, `exigir_contrato`).
      *
      * @param array<array-key, mixed> $config
      */
@@ -72,12 +75,14 @@ final readonly class VippConfig
         $baseUrl = $config['base_url'] ?? null;
         $timeout = $config['timeout'] ?? null;
         $validar = $config['validar_antes_de_enviar'] ?? true;
+        $exigirContrato = $config['exigir_contrato'] ?? false;
 
         return new self(
             perfil: new PerfilVipp($texto('usuario', 'VIPP_USUARIO'), $texto('token', 'VIPP_TOKEN'), $texto('id_perfil', 'VIPP_ID_PERFIL')),
             baseUrl: is_string($baseUrl) && trim($baseUrl) !== '' ? $baseUrl : self::URL_PADRAO,
             timeout: is_numeric($timeout) ? (float) $timeout : 30.0,
             validarAntesDeEnviar: filter_var($validar, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+            exigirContrato: filter_var($exigirContrato, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
         );
     }
 

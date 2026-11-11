@@ -27,8 +27,15 @@ it('lê o formato de config/vipp.php, inclusive valores vindos do .env como stri
     expect($config->perfil->idPerfil)->toBe('123')
         ->and($config->baseUrl)->toBe(VippConfig::URL_PADRAO)
         ->and($config->timeout)->toBe(15.0)
-        ->and($config->validarAntesDeEnviar)->toBeFalse();
+        ->and($config->validarAntesDeEnviar)->toBeFalse()
+        ->and($config->exigirContrato)->toBeFalse();
 });
+
+it('lê exigir_contrato do config/.env', function (mixed $valor, bool $esperado): void {
+    $config = VippConfig::fromArray(['usuario' => 'loja', 'token' => 'segredo', 'id_perfil' => '1', 'exigir_contrato' => $valor]);
+
+    expect($config->exigirContrato)->toBe($esperado);
+})->with([[true, true], ['true', true], ['1', true], ['false', false], [null, false], ['talvez', false]]);
 
 it('aponta a variável de ambiente que falta', function (): void {
     VippConfig::fromArray(['usuario' => 'loja', 'id_perfil' => '1']);

@@ -57,7 +57,7 @@ final readonly class VippClient implements VippClientInterface
     public function postarObjeto(Postagem $postagem, ?PerfilVipp $perfil = null): ResultadoPostagem
     {
         if ($this->config->validarAntesDeEnviar) {
-            new ValidadorPostagem()->garantir($postagem);
+            new ValidadorPostagem($this->config->exigirContrato)->garantir($postagem);
         }
 
         $payload = ['PerfilVipp' => ($perfil ?? $this->config->perfil)->toArray()] + $postagem->toArray();
@@ -69,7 +69,7 @@ final readonly class VippClient implements VippClientInterface
 
     public function validar(Postagem $postagem): array
     {
-        return new ValidadorPostagem()->validar($postagem);
+        return new ValidadorPostagem($this->config->exigirContrato)->validar($postagem);
     }
 
     private function interpretar(RespostaHttp $resposta, ?string $etiquetaEnviada): ResultadoPostagem

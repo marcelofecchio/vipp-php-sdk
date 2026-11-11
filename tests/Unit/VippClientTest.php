@@ -14,8 +14,11 @@ use MarceloFecchio\Vipp\Exceptions\HttpException;
 use MarceloFecchio\Vipp\Exceptions\RespostaInvalidaException;
 use MarceloFecchio\Vipp\Exceptions\TransporteException;
 use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
+use MarceloFecchio\Vipp\Postagem\ContratoEct;
 use MarceloFecchio\Vipp\Postagem\Destinatario;
+use MarceloFecchio\Vipp\Postagem\Postagem;
 use MarceloFecchio\Vipp\Postagem\Volume;
+use MarceloFecchio\Vipp\Resultado\ErroVipp;
 use MarceloFecchio\Vipp\VippClient;
 
 beforeEach(function (): void {
@@ -104,7 +107,47 @@ it('devolve resultado inválido (sem exceção) quando o ViPP recusa os dados co
     'campos obrigatórios' => ['homologacao-400-campos-obrigatorios', 1310],
     'DV da etiqueta' => ['homologacao-400-etiqueta-dv', 2002],
     'data da NF' => ['homologacao-400-data-nf', 1500],
+    'cartão sem contrato' => ['homologacao-400-cartao-sem-contrato', 1100],
+    'contrato obrigatório em produção' => ['producao-400-contrato-91', 91],
 ]);
+
+it('traduz o erro 91 sem descrição e expõe exigeContrato()', function (): void {
+    $this->http->addResponse(respostaFixture(400, 'producao-400-contrato-91'));
+
+    $resultado = $this->vipp->postarObjeto(postagemExemplo());
+    $erro = $resultado->erros[0];
+
+    expect($resultado->exigeContrato())->toBeTrue()
+        ->and($erro->ehContratoObrigatorio())->toBeTrue()
+        ->and($erro->semDescricao)->toBeTrue()
+        ->and($resultado->mensagensDeErro())->toBe([
+            '[91] NumeroContrato: obrigatório neste perfil (erro 91 do ViPP, sem descrição); informe ContratoEct com NrContrato e NrCartao.',
+            '[91] NumeroCartao: obrigatório neste perfil (erro 91 do ViPP, sem descrição); informe ContratoEct com NrContrato e NrCartao.',
+        ]);
+});
+
+it('mantém o texto genérico para outros erros sem descrição', function (): void {
+    $erro = ErroVipp::fromArray(['CodigoErro' => 1234, 'Campo' => 'Algo', 'Descricao' => '']);
+
+    expect((string) $erro)->toBe('[1234] Algo: Erro sem descrição')
+        ->and($erro->semDescricao)->toBeTrue()
+        ->and($erro->ehContratoObrigatorio())->toBeFalse();
+});
+
+it('não marca exigeContrato() em outros erros', function (): void {
+    $this->http->addResponse(respostaFixture(400, 'homologacao-400-cartao-sem-contrato'));
+
+    expect($this->vipp->postarObjeto(new Postagem(destinatarioExemplo(), postagemExemplo()->volume, contratoEct: new ContratoEct('1', null, '2')))->exigeContrato())->toBeFalse();
+});
+
+it('barra a postagem sem contrato antes do envio quando exigirContrato está ligado', function (): void {
+    $config = new VippConfig(VippConfig::homologacao()->perfil, exigirContrato: true);
+    $vipp = new VippClient($config, $this->http);
+
+    expect(fn() => $vipp->postarObjeto(postagemExemplo()))->toThrow(ValidacaoException::class, 'ContratoEct.NrContrato')
+        ->and($this->http->getRequests())->toBe([])
+        ->and($vipp->validar(postagemExemplo()))->toHaveCount(2);
+});
 
 it('lança AutenticacaoException em HTTP 401, sem expor o token', function (string $fixture, int $codigo): void {
     $this->http->addResponse(respostaFixture(401, $fixture));

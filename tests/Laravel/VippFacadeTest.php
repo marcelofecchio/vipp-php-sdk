@@ -47,3 +47,9 @@ it('funciona dentro de um job enfileirado', function (): void {
 
     expect($fake->ultimaPostagem())->toBe($postagem);
 });
+
+it('Vipp::fake() aceita exigirContrato', function (): void {
+    Vipp::fake(exigirContrato: true);
+
+    expect(Vipp::validar(postagemExemplo()))->toHaveCount(2);
+});

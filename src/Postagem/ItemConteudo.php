@@ -12,6 +12,11 @@ use MarceloFecchio\Vipp\ValueObject\Dinheiro;
  */
 final readonly class ItemConteudo
 {
+    /** Classe de caracteres aceita na descrição: letras (com acento), dígitos, espaço e pontuação simples. */
+    public const string CARACTERES_PERMITIDOS = '\p{L}\p{N} .,\-\/()%:;+';
+
+    public const int TAMANHO_MAXIMO_DESCRICAO = 70;
+
     public ?string $descricao;
     public Dinheiro $valor;
 
@@ -22,6 +27,19 @@ final readonly class ItemConteudo
     ) {
         $this->descricao = Normaliza::texto($descricao);
         $this->valor = Dinheiro::de($valor, 'ItemConteudo.Valor');
+    }
+
+    /**
+     * Deixa uma descrição livre (ex.: produto da NF-e) no formato aceito pela SEFAZ: troca os caracteres
+     * não aceitos (`#`, `&`, aspas, `*`, emoji…) por espaço, junta espaços e corta em 70 caracteres.
+     * Não garante o mínimo de 3 caracteres: a validação continua conferindo.
+     */
+    public static function limparDescricao(string $descricao): string
+    {
+        $limpa = (string) preg_replace('/[^'.self::CARACTERES_PERMITIDOS.']/u', ' ', $descricao);
+        $limpa = trim((string) preg_replace('/\s+/u', ' ', $limpa));
+
+        return rtrim(mb_substr($limpa, 0, self::TAMANHO_MAXIMO_DESCRICAO));
     }
 
     public function total(): Dinheiro

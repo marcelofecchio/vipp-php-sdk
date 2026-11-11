@@ -19,9 +19,9 @@ final class Vipp extends Facade
     /**
      * Troca o cliente do container por um `VippFake` (inclusive para quem recebe `VippClientInterface` por injeção).
      */
-    public static function fake(bool $validar = true): VippFake
+    public static function fake(bool $validar = true, bool $exigirContrato = false): VippFake
     {
-        $fake = new VippFake($validar);
+        $fake = new VippFake($validar, $exigirContrato);
         self::swap($fake);
 
         return $fake;

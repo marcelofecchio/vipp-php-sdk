@@ -29,7 +29,13 @@ final class VippFake implements VippClientInterface
 
     private int $sequencia = 0;
 
-    public function __construct(private readonly bool $validar = true) {}
+    /**
+     * @param bool $exigirContrato mesmo efeito de `VippConfig::$exigirContrato`
+     */
+    public function __construct(
+        private readonly bool $validar = true,
+        private readonly bool $exigirContrato = false,
+    ) {}
 
     /**
      * Programa as próximas respostas, em ordem. Depois que a fila acaba, volta ao padrão (postagem válida).
@@ -46,7 +52,7 @@ final class VippFake implements VippClientInterface
     public function postarObjeto(Postagem $postagem, ?PerfilVipp $perfil = null): ResultadoPostagem
     {
         if ($this->validar) {
-            new ValidadorPostagem()->garantir($postagem);
+            new ValidadorPostagem($this->exigirContrato)->garantir($postagem);
         }
 
         $this->postagens[] = $postagem;
@@ -63,7 +69,7 @@ final class VippFake implements VippClientInterface
 
     public function validar(Postagem $postagem): array
     {
-        return new ValidadorPostagem()->validar($postagem);
+        return new ValidadorPostagem($this->exigirContrato)->validar($postagem);
     }
 
     /**

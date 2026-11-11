@@ -19,4 +19,8 @@ return [
 
     // Valida os dados localmente antes de enviar (recomendado).
     'validar_antes_de_enviar' => env('VIPP_VALIDAR_ANTES_DE_ENVIAR', true),
+
+    // Exige ContratoEct (NrContrato e NrCartao) na validação local. Recomendado em produção:
+    // perfis podem recusar a postagem sem eles (erro 91 do ViPP, sem descrição).
+    'exigir_contrato' => env('VIPP_EXIGIR_CONTRATO', false),
 ];
