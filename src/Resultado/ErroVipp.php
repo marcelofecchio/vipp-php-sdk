@@ -8,7 +8,8 @@ use MarceloFecchio\Vipp\Support\Leitor;
 use Stringable;
 
 /**
- * Item de `ListaErros`. Códigos observados: 1000/1010/1020 (credenciais ausentes), 1002 (perfil sem acesso),
+ * Item de `ListaErros`. Códigos observados: 91 (NumeroContrato/NumeroCartao obrigatórios no perfil; vem com a
+ * descrição vazia, exibida como "Erro sem descrição"), 1000/1010/1020 (credenciais ausentes), 1002 (perfil sem acesso),
  * 1030 (usuário ou senha inválidos), 1310/1320/1330 (nome/endereço/CEP), 1500 (data da NF), 2002 (DV da etiqueta),
  * 2200 (descrição do item), 2222 (valor do item).
  */

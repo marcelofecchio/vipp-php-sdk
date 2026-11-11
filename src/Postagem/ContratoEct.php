@@ -7,7 +7,9 @@ namespace MarceloFecchio\Vipp\Postagem;
 use MarceloFecchio\Vipp\Support\Normaliza;
 
 /**
- * Contrato dos Correios. Só é necessário quando o Perfil de Importação não o tiver configurado (Nota 1).
+ * Contrato dos Correios. Pelo manual, só é necessário quando o Perfil de Importação não o tiver configurado (Nota 1),
+ * mas em produção um perfil exigiu `NrContrato` e `NrCartao` (erro 91, sem descrição): informe-os sempre em produção.
+ * Envie só dígitos, mantendo os zeros à esquerda do cadastro dos Correios.
  */
 final readonly class ContratoEct
 {

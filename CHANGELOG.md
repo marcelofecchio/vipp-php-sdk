@@ -4,6 +4,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+### Documentação
+
+- Comportamento observado em produção, a partir da integração do MARCELO ENVIOS: `ContratoEct` (`NrContrato` e `NrCartao`) foi obrigatório, e sem ele o ViPP devolve o erro 91 com a descrição vazia.
+- README: `ContratoEct` no exemplo de uso; seções "Contrato e cartão de postagem", "Descrição do conteúdo", "Códigos de erro observados", "Testar as credenciais" e "Credenciais vindas do banco" (Laravel).
+
 ## [0.1.0] - 2026-11-11
 
 Primeira versão pública.

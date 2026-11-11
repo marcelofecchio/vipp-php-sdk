@@ -2,11 +2,19 @@
 
 ## Estado atual
 
-**v0.1.0 lançada em 11/11/2026** (tag `v0.1.0` e release no GitHub; cadastro no Packagist em andamento, ver "Pontos em aberto"). Todos os requisitos de `docs/PROMPT-INICIAL.md` estão implementados. `composer qa` passa, com 111 testes unitários/Laravel. Os testes de integração e a coleção Postman (20 de 20 asserções) passam contra a homologação.
+**v0.1.0 lançada em 11/11/2026** (tag, release no GitHub e Packagist com webhook; `composer require marcelofecchio/vipp-php-sdk` testado em projeto limpo). Todos os requisitos de `docs/PROMPT-INICIAL.md` estão implementados. `composer qa` passa, com 111 testes unitários/Laravel. Os testes de integração e a coleção Postman (20 de 20 asserções) passam contra a homologação. O `marcelo-envios` já exporta para o ViPP de **produção** com a v0.1.0 (ver "Comportamento observado em produção").
 
-**Próximo passo recomendado:** confirmar com a AGF/VisualSet como o perfil de produção trata a etiqueta enviada (ver "Pontos em aberto"). Depois, integrar no `marcelo-envios`.
+**Próximo passo recomendado:** implementar o backlog vindo da integração do `marcelo-envios` (seção "Backlog"), começando pela validação do contrato e pelo erro 91. Em paralelo, confirmar com a agência se o perfil de produção manteve a etiqueta enviada.
 
 ## Histórico
+
+### 11/11/2026 — relatório da integração do `marcelo-envios` com a produção
+
+O `marcelo-envios` integrou o SDK v0.1.0 com o ViPP de produção e enviou um relatório de lacunas (`vipp-php-sdk-gaps.md`, 6 itens). Feito nesta sessão, **só documentação**, sem mudança de comportamento:
+- README: `ContratoEct` no exemplo de uso; novas seções "Contrato e cartão de postagem", "Descrição do conteúdo" (com um trecho para limpar a descrição), "Códigos de erro observados", "Testar as credenciais" e "Credenciais vindas do banco" (Laravel). "O que difere do manual" passou a cobrir também a produção.
+- Comentários de `ContratoEct` e `ErroVipp` atualizados (erro 91).
+- Packagist confirmado: pacote publicado, webhook `packagist.org/api/github` ativo e `composer require` testado em projeto limpo.
+- As sugestões de código do relatório foram para o "Backlog".
 
 ### 11/11/2026 — lançamento da v0.1.0
 
@@ -54,6 +62,31 @@ Outros achados:
 - **A homologação aceita** emoji na descrição, item acima de R$ 100 mil, quantidade 0, declaração sem itens, CPF inválido, chave de 44 dígitos com 3 dígitos, adicional desconhecido (`XX`), UF incoerente com o CEP e destinatário sem número, bairro ou cidade. Como o PDF e as regras dos Correios e da SEFAZ exigem esses dados, **o SDK valida localmente** (pode ser desligado com `validar_antes_de_enviar=false`).
 - Campos extras na resposta: `EntregaNoVizinho`, `QuantidadeVolumes`, `IdStatusPostagem`, `CodigoAdicionaisVolume`. A resposta **ecoa o `PerfilVipp` com o token**, que o SDK remove de `ResultadoPostagem::$resposta` e mascara nas exceções.
 
+## Comportamento observado em produção (11/11/2026)
+
+Fonte: relatório da integração do `marcelo-envios` (`vipp-php-sdk-gaps.md`), que exporta envios já pré-postados nos Correios, com a etiqueta dos Correios. Não houve postagens de produção feitas a partir deste repositório (regra 1 do CLAUDE.md).
+
+| # | Ponto | Observado | Situação |
+|---|---|---|---|
+| 1 | `ContratoEct` | Sem ele: HTTP 400 com `[91] NumeroContrato` e `[91] NumeroCartao`, **descrição vazia** (o SDK exibe "Erro sem descrição"). Com `NrContrato` + `NrCartao`, a mesma postagem foi aceita. A homologação (perfil 9363) não exige | Documentado; validação no backlog |
+| 2 | Testar credenciais | O ViPP só tem `PostarObjeto`; não existe consulta nem login sem criar postagem | Documentado. `TODO(confirmar)` com a VisualSet se existe algum endpoint de consulta |
+| 3 | Credenciais no banco | O app sobrescreve o vínculo de `VippClientInterface` (`bind`), montando `VippConfig` a partir do banco; `Vipp::fake()` continua funcionando | Documentado (README → Laravel) |
+| 4 | Etiqueta divergente | Ainda não se sabe se o perfil de produção mantém a etiqueta enviada | `TODO(confirmar)` |
+| 5 | Formato do contrato e do cartão | Só dígitos com os zeros à esquerda (cartão com 10 dígitos): aceito. `CodigoAdministrativo` não enviado e não exigido | Sem zeros e `CodigoAdministrativo` em outros perfis: `TODO(confirmar)` |
+| 6 | Descrição do conteúdo | Descrições de NF-e trazem `#`, `&`, aspas e `*`, recusados pela validação local, e o app precisou limpar antes de enviar | Documentado com trecho de código; helper no backlog |
+
+Também confirmado: a produção usa a mesma URL padrão (`https://vpsrv.visualset.com.br`). O app monta `new VippConfig($perfil)` sem `baseUrl` e as postagens são aceitas.
+
+## Backlog (sugestões de código do relatório do `marcelo-envios`)
+
+Não implementado: o pedido desta sessão foi só de documentação.
+
+- [ ] Validação opcional do contrato: por exemplo, `VippConfig::$exigirContrato` (e `VIPP_EXIGIR_CONTRATO`) para barrar localmente a postagem sem `NrContrato`/`NrCartao`, com mensagem clara. Com padrão `false` não quebra a API; avaliar `true` numa versão 0.2.
+- [ ] `ErroVipp`: quando o código for 91 e a descrição vier vazia, trocar "Erro sem descrição" por "obrigatório neste perfil (erro 91 do ViPP, sem descrição)".
+- [ ] Fixture `producao-400-contrato-91.json` com a resposta do erro 91, sem dados reais, e testes correspondentes.
+- [ ] Helper para a descrição do conteúdo: por exemplo, `ItemConteudo::limparDescricao(string): string` (troca os caracteres não aceitos por espaço, junta espaços e corta em 70), reaproveitando a regex do `ValidadorPostagem`.
+- [ ] `verificarCredenciais()`: só se a VisualSet indicar um endpoint que não crie postagem.
+
 ## Decisões
 
 | Decisão | Motivo |
@@ -70,10 +103,12 @@ Outros achados:
 
 ## Pontos em aberto
 
-- [ ] **TODO(confirmar)** com a AGF/VisualSet: o perfil de **produção** mantém a etiqueta enviada (Nota 16) ou também gera outra? É essencial para o `marcelo-envios`.
-- [ ] Confirmar que o servidor de produção é o mesmo `vpsrv.visualset.com.br`, só com outras credenciais.
+- [ ] **TODO(confirmar)** com a AGF/VisualSet: o perfil de **produção** mantém a etiqueta enviada (Nota 16) ou também gera outra? Basta conferir se a primeira postagem aceita do `marcelo-envios` voltou com a mesma etiqueta (`etiquetaDivergente()` falso).
+- [ ] **TODO(confirmar)**: o cartão é aceito sem os zeros à esquerda? Algum perfil exige `CodigoAdministrativo`?
+- [ ] **TODO(confirmar)** com a VisualSet: existe endpoint de consulta ou de login que não crie postagem?
+- [x] O servidor de produção é o mesmo `vpsrv.visualset.com.br`, só com outras credenciais (11/11/2026, pela integração do `marcelo-envios`).
 - [ ] Conjunto exato de caracteres aceitos pela SEFAZ na descrição da DC-e.
 - [ ] Eventos Laravel (postagem enviada, válida ou inválida)? Decidir com o usuário.
 - [x] Tag `v0.1.0` e release no GitHub (11/11/2026).
-- [ ] Cadastro no Packagist (`marcelofecchio/vipp-php-sdk`) e webhook de atualização automática; depois, testar `composer require marcelofecchio/vipp-php-sdk` em um projeto limpo.
-- [ ] Integração no `marcelo-envios`: montar a `Postagem` a partir do envio e da etiqueta dos Correios, e definir a política de reenvio.
+- [x] Packagist (`marcelofecchio/vipp-php-sdk`) com webhook de atualização automática; `composer require` testado em projeto limpo (11/11/2026).
+- [x] Integração no `marcelo-envios` (11/11/2026): botão "Exportar para o ViPP", uma tentativa por clique, trava por envio, sem retry; `CodigoBarraVolume = ME-{id}` para conferir exportações sem resposta.

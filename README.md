@@ -29,7 +29,7 @@ composer require marcelofecchio/vipp-php-sdk
 use MarceloFecchio\Vipp\Config\PerfilVipp;
 use MarceloFecchio\Vipp\Config\VippConfig;
 use MarceloFecchio\Vipp\Enum\ServicoAdicional;
-use MarceloFecchio\Vipp\Postagem\{DeclaracaoConteudo, Destinatario, ItemConteudo, Postagem, Volume};
+use MarceloFecchio\Vipp\Postagem\{ContratoEct, DeclaracaoConteudo, Destinatario, ItemConteudo, Postagem, Volume};
 use MarceloFecchio\Vipp\VippClient;
 
 $vipp = new VippClient(new VippConfig(new PerfilVipp('usuario', 'token', '9363')));
@@ -60,6 +60,10 @@ $postagem = new Postagem(
         adicionais: [ServicoAdicional::AvisoRecebimento],
     ),
     servicoEct: '03298',                 // PAC; opcional se o perfil já define
+    contratoEct: new ContratoEct(        // na prática, obrigatório em produção (veja abaixo)
+        nrContrato: '9912345678',
+        nrCartao: '0067345678',
+    ),
 );
 
 $resultado = $vipp->postarObjeto($postagem);
@@ -78,7 +82,40 @@ Um exemplo executável está em [examples/postar-objeto.php](examples/postar-obj
 
 ### Etiqueta já gerada nos Correios
 
-Quando o `Volume` recebe `etiqueta`, o SDK confere o formato (`AA123456785BR`) e o dígito verificador antes de enviar. Depois, **sempre confira `etiquetaDivergente()`**: na homologação o perfil 9363 ignora a etiqueta enviada e gera outra. Em produção, o comportamento depende da configuração do Perfil de Importação feita pela AGF.
+Quando o `Volume` recebe `etiqueta`, o SDK confere o formato (`AA123456785BR`) e o dígito verificador antes de enviar. Depois, **sempre confira `etiquetaDivergente()`**: na homologação o perfil 9363 ignora a etiqueta enviada e gera outra. Em produção, o comportamento depende da configuração do Perfil de Importação feita pela AGF e **ainda não foi confirmado**. Guarde a etiqueta devolvida por `etiqueta()` e avise o operador quando houver divergência.
+
+### Contrato e cartão de postagem
+
+O manual diz que `ContratoEct` só é necessário quando o Perfil de Importação não tem o contrato configurado (Nota 1), e a homologação aceita postagens sem ele. **Em produção, porém, um perfil recusou a postagem sem `NrContrato` e `NrCartao`** (observado em 11/11/2026). A resposta foi HTTP 400 com:
+
+```
+[91] NumeroContrato: Erro sem descrição
+[91] NumeroCartao: Erro sem descrição
+```
+
+O ViPP manda o erro 91 com a descrição **vazia**. "Erro sem descrição" é o texto que o SDK coloca nesse caso, então só o nome do campo indica o problema. Com o mesmo payload acrescido de `ContratoEct(nrContrato: …, nrCartao: …)`, a postagem foi aceita.
+
+Recomendações:
+
+- Em produção, **sempre informe `ContratoEct` com `nrContrato` e `nrCartao`**, usando o contrato dos Correios que gerou a etiqueta.
+- Envie só dígitos, mantendo os zeros à esquerda do cadastro dos Correios. O cartão com 10 dígitos e zeros à esquerda foi aceito.
+- `CodigoAdministrativo` não foi exigido nesse perfil.
+- Erro 91 em `NumeroContrato` ou `NumeroCartao` significa "contrato/cartão obrigatório neste perfil". Trate assim na mensagem ao usuário.
+
+Ainda não confirmado: se o cartão é aceito sem os zeros à esquerda e se algum perfil exige `CodigoAdministrativo`.
+
+### Descrição do conteúdo
+
+A validação local só aceita, em `DescricaoConteudo`, letras (com acento), dígitos, espaço e `. , - / ( ) % : ; +`, com 3 a 70 caracteres. A SEFAZ recusa emoji e símbolos e cancela a DC-e depois. Descrições vindas de NF-e costumam trazer `#`, `&`, aspas e `*`, e uma única descrição assim reprova a postagem inteira. Por enquanto, limpe a descrição antes de criar o `ItemConteudo`:
+
+```php
+$descricao = preg_replace('/[^\p{L}\p{N} .,\-\/()%:;+]/u', ' ', $descricaoDaNota); // troca o que não é aceito por espaço
+$descricao = mb_substr(trim(preg_replace('/\s+/u', ' ', $descricao)), 0, 70);    // junta espaços e corta em 70
+
+new ItemConteudo($descricao, $quantidade, $valorUnitario);
+```
+
+Se sobrarem menos de 3 caracteres, a validação continua recusando: use uma descrição genérica do produto.
 
 ### Valores, peso e datas
 
@@ -106,6 +143,26 @@ Todas implementam `MarceloFecchio\Vipp\Exceptions\VippException`.
 
 Para validar sem enviar nada, use `$vipp->validar($postagem)`, que devolve uma lista de `Violacao`.
 
+### Códigos de erro observados
+
+| Código | Campo | Significado |
+|---|---|---|
+| 91 | `NumeroContrato`, `NumeroCartao` | Contrato ou cartão obrigatório neste perfil. Vem **sem descrição** (visto em produção). |
+| 1000, 1010, 1020 | `Usuario`, `Token`, `IdPerfil` | Credencial não informada |
+| 1002 | `IdPerfil` | Usuário sem acesso ao perfil, ou perfil inexistente (HTTP 401) |
+| 1030 | `Login` | Usuário ou token inválidos (HTTP 401) |
+| 1310, 1320, 1330 | `Nome`, `Endereco`, `Cep` | Dado obrigatório do destinatário ausente |
+| 1500 | `DtNotaFiscal` | Data fora do formato `DD/MM/AAAA` |
+| 2002 | `Etiqueta` | Dígito verificador inválido |
+| 2200 | `DescricaoConteudo` | Descrição do item ausente ou com menos de 3 caracteres |
+| 2222 | `Valor` | Valor do item não numérico |
+
+### Testar as credenciais
+
+**O ViPP não tem endpoint de consulta nem de login**: o único método é `PostarObjeto`. Por isso não existe como "testar a conexão" sem criar uma postagem real na agência. `validar()` é só local: confere os dados da postagem, mas não usuário, token nem perfil.
+
+Na prática, a primeira postagem confirma as credenciais. Um HTTP 401 vira `AutenticacaoException`, com o erro 1030 (usuário ou token) ou 1002 (perfil). Se a sua aplicação tem uma tela de credenciais, explique isso ao usuário em vez de oferecer um botão "Testar conexão".
+
 ## Laravel
 
 O Service Provider e a Facade são registrados por auto-discovery.
@@ -125,6 +182,33 @@ VIPP_VALIDAR_ANTES_DE_ENVIAR=true
 ```
 
 As credenciais só são lidas quando o cliente é usado pela primeira vez, então a aplicação sobe normalmente sem elas.
+
+### Credenciais vindas do banco
+
+Se as credenciais são cadastradas numa tela da aplicação, e não no `.env`, registre o seu próprio vínculo de `VippClientInterface` num Service Provider da aplicação. Ele substitui o vínculo do pacote:
+
+```php
+use MarceloFecchio\Vipp\Config\{PerfilVipp, VippConfig};
+use MarceloFecchio\Vipp\Exceptions\ConfiguracaoException;
+use MarceloFecchio\Vipp\{VippClient, VippClientInterface};
+
+public function register(): void
+{
+    // bind (e não singleton): credenciais alteradas na tela valem sem reiniciar filas nem o Octane
+    $this->app->bind(VippClientInterface::class, function (): VippClientInterface {
+        $credenciais = Configuracoes::vipp() ?? throw new ConfiguracaoException('Cadastre as credenciais do ViPP.');
+
+        return new VippClient(new VippConfig(
+            new PerfilVipp($credenciais->usuario, $credenciais->token, $credenciais->idPerfil),
+        ));
+    });
+}
+```
+
+- Use `bind` quando as credenciais puderem mudar com a aplicação no ar. Com `singleton`, workers de fila e o Octane continuariam usando as credenciais antigas até reiniciar.
+- `Vipp::fake()` continua funcionando, porque troca o vínculo de `VippClientInterface` qualquer que seja a origem.
+- Dependa sempre de `VippClientInterface`. A classe concreta `VippClient` continua ligada ao `config/vipp.php` do pacote.
+- Guarde o token criptografado (ex.: cast `encrypted` do Eloquent).
 
 ### Injeção de dependência (recomendado)
 
@@ -203,13 +287,15 @@ Sem resposta programada, o fake devolve uma postagem válida, repetindo a etique
 
 ## O que difere do manual do ViPP
 
-Conferido na homologação em 30/10/2026; detalhes em [docs/PROGRESSO.md](docs/PROGRESSO.md).
+Conferido na homologação em 30/10/2026 e em produção (integração do MARCELO ENVIOS) em 11/11/2026. Detalhes em [docs/PROGRESSO.md](docs/PROGRESSO.md).
 
+- **Em produção, `ContratoEct` (`NrContrato` e `NrCartao`) foi obrigatório**, mesmo o manual dizendo que o perfil pode dispensá-lo. Sem ele, o ViPP devolve o erro 91 com a descrição vazia (veja [Contrato e cartão de postagem](#contrato-e-cartão-de-postagem)).
 - **Datas** precisam de barras (`DD/MM/AAAA`). O formato sem separador citado na Nota 8 é recusado com o erro 1500.
 - **Valores sem separador são lidos como centavos** (`"10"` = R$ 0,10). Por isso o SDK sempre envia `"10,00"`.
 - **Peso com vírgula é truncado** (`"1,6"` = 1 g). Por isso o SDK só aceita gramas inteiros.
 - **Só o primeiro volume da lista é processado**: os demais são descartados sem aviso. Por isso o SDK envia um volume por postagem.
-- **Etiqueta informada pode ser substituída** (veja `etiquetaDivergente()`).
+- **Etiqueta informada pode ser substituída**: acontece na homologação; em produção, ainda não foi confirmado (veja `etiquetaDivergente()`).
+- **Não há endpoint para testar as credenciais**: só `PostarObjeto` (veja [Testar as credenciais](#testar-as-credenciais)).
 - **HTTP 400** para erros de validação e **401** para credenciais ou perfil inválidos. O manual não deixa isso claro.
 - A homologação aceita dados que os Correios e a SEFAZ recusam depois, como emoji na descrição, item acima de R$ 100 mil e CPF inválido. A validação local do SDK bloqueia esses casos.
 
