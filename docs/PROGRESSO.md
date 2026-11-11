@@ -2,11 +2,18 @@
 
 ## Estado atual
 
-**v0.1.0 (não publicada no Packagist)**. Todos os requisitos de `docs/PROMPT-INICIAL.md` estão implementados. `composer qa` passa, com 111 testes unitários/Laravel. Os testes de integração e a coleção Postman (20 de 20 asserções) passam contra a homologação.
+**v0.1.0 lançada em 11/11/2026** (tag `v0.1.0` e release no GitHub; cadastro no Packagist em andamento, ver "Pontos em aberto"). Todos os requisitos de `docs/PROMPT-INICIAL.md` estão implementados. `composer qa` passa, com 111 testes unitários/Laravel. Os testes de integração e a coleção Postman (20 de 20 asserções) passam contra a homologação.
 
 **Próximo passo recomendado:** confirmar com a AGF/VisualSet como o perfil de produção trata a etiqueta enviada (ver "Pontos em aberto"). Depois, integrar no `marcelo-envios`.
 
 ## Histórico
+
+### 11/11/2026 — lançamento da v0.1.0
+
+Feito:
+- `composer validate --strict` e `composer qa` sem erros; CHANGELOG fechado em `[0.1.0]`.
+- Tag `v0.1.0` e release no GitHub.
+- Não havia token da API do Packagist nesta máquina, então o cadastro do pacote ficou com o usuário (packagist.org → Submit).
 
 ### 30/10/2026 — sessão inicial
 
@@ -67,5 +74,6 @@ Outros achados:
 - [ ] Confirmar que o servidor de produção é o mesmo `vpsrv.visualset.com.br`, só com outras credenciais.
 - [ ] Conjunto exato de caracteres aceitos pela SEFAZ na descrição da DC-e.
 - [ ] Eventos Laravel (postagem enviada, válida ou inválida)? Decidir com o usuário.
-- [ ] Publicação no Packagist e tag `v0.1.0`, só com autorização do usuário.
+- [x] Tag `v0.1.0` e release no GitHub (11/11/2026).
+- [ ] Cadastro no Packagist (`marcelofecchio/vipp-php-sdk`) e webhook de atualização automática; depois, testar `composer require marcelofecchio/vipp-php-sdk` em um projeto limpo.
 - [ ] Integração no `marcelo-envios`: montar a `Postagem` a partir do envio e da etiqueta dos Correios, e definir a política de reenvio.
