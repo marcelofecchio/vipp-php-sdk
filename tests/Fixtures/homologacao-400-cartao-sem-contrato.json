@@ -1,0 +1,45 @@
+{
+    "Destinatario": {
+        "Nome": "Teste de WebService",
+        "Endereco": "R Conselheiro Nebias",
+        "EntregaNoVizinho": "",
+        "Numero": "263",
+        "Bairro": "Campos Eliseos",
+        "Cidade": "Sao Paulo",
+        "UF": "SP",
+        "Cep": "01203001"
+    },
+    "Volumes": [
+        {
+            "Peso": "300",
+            "Altura": "1",
+            "Largura": "10",
+            "Comprimento": "15",
+            "QuantidadeVolumes": "",
+            "DeclaracaoConteudo": {
+                "ItemConteudo": [
+                    {
+                        "DescricaoConteudo": "Camiseta algodao",
+                        "Quantidade": "1",
+                        "Valor": "10,00"
+                    }
+                ],
+                "DocumentoRemetente": "03998581000190",
+                "DocumentoDestinatario": "52998224725"
+            },
+            "Categoria": 0
+        }
+    ],
+    "ListaErros": [
+        {
+            "TipoErro": 2,
+            "DescricaoTipoErro": "Validacao",
+            "CodigoErro": 1100,
+            "Campo": "NrCartao",
+            "Descricao": "O Número do Cartão É Obrigatóriamente Numérico!"
+        }
+    ],
+    "StPostagem": 0,
+    "IdStatusPostagem": 0,
+    "StatusPostagem": "Invalida"
+}

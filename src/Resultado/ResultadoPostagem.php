@@ -74,6 +74,21 @@ final readonly class ResultadoPostagem
     }
 
     /**
+     * True quando o ViPP recusou a postagem por falta de contrato/cartão (erro 91). Ligue `exigirContrato` na
+     * configuração para barrar esse caso antes do envio.
+     */
+    public function exigeContrato(): bool
+    {
+        foreach ($this->erros as $erro) {
+            if ($erro->ehContratoObrigatorio()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Mensagens de erro prontas para exibir ou registrar em log.
      *
      * @return list<string>

@@ -2,11 +2,22 @@
 
 ## Estado atual
 
-**v0.1.0 lançada em 11/11/2026** (tag, release no GitHub e Packagist com webhook; `composer require marcelofecchio/vipp-php-sdk` testado em projeto limpo). Todos os requisitos de `docs/PROMPT-INICIAL.md` estão implementados. `composer qa` passa, com 111 testes unitários/Laravel. Os testes de integração e a coleção Postman (20 de 20 asserções) passam contra a homologação. O `marcelo-envios` já exporta para o ViPP de **produção** com a v0.1.0 (ver "Comportamento observado em produção").
+**v0.2.0 lançada em 11/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook). Todos os requisitos de `docs/PROMPT-INICIAL.md` e o backlog do relatório do `marcelo-envios` estão implementados (exceto `verificarCredenciais()`, que depende da VisualSet). `composer qa` passa, com 139 testes unitários/Laravel. A integração (2 de 2) e a coleção Postman (7 requisições, 23 de 23 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
 
-**Próximo passo recomendado:** implementar o backlog vindo da integração do `marcelo-envios` (seção "Backlog"), começando pela validação do contrato e pelo erro 91. Em paralelo, confirmar com a agência se o perfil de produção manteve a etiqueta enviada.
+**Próximo passo recomendado:** no `marcelo-envios`, atualizar para `^0.2`, ligar `exigirContrato`, trocar a limpeza manual da descrição por `ItemConteudo::limparDescricao()` e usar `exigeContrato()` na mensagem ao ADM. Em paralelo, confirmar com a agência se o perfil de produção manteve a etiqueta enviada.
 
 ## Histórico
+
+### 11/11/2026 — v0.2.0 (backlog do relatório do `marcelo-envios`)
+
+Feito, na branch `feat/contrato-erro91-descricao` (PR com merge em `main`):
+- `exigirContrato` em `VippConfig` (`exigir_contrato` / `VIPP_EXIGIR_CONTRATO`, padrão `false`), `ValidadorPostagem`, `VippFake` e `Vipp::fake()`.
+- Erro 91 sem descrição: mensagem clara, `ErroVipp::$semDescricao`, `ErroVipp::ehContratoObrigatorio()` e `ResultadoPostagem::exigeContrato()`.
+- `ItemConteudo::limparDescricao()` e `ItemConteudo::CARACTERES_PERMITIDOS`, com a regex compartilhada com o validador.
+- Sondagem na homologação: o perfil 9363 **impõe o próprio contrato (`35`)** e ignora `NrContrato`/`NrCartao` enviados (contrato inexistente, só contrato e cartão sem zeros foram aceitos). **Cartão sem contrato → HTTP 400, erro 1100** ("O Número do Cartão É Obrigatóriamente Numérico!"). A validação local passou a barrar esse caso sempre.
+- Fixtures: `homologacao-400-cartao-sem-contrato.json` (capturada) e `producao-400-contrato-91.json` (reconstruída do relatório; ver `tests/Fixtures/README.md`). O erro 91 não se reproduz na homologação.
+- Postman: `ContratoEct` com as variáveis `nrContrato`/`nrCartao` nas postagens válidas e a requisição 07 (erro 1100).
+- Decisão: `exigirContrato` com padrão `false`. Ligar por padrão quebraria quem usa a homologação sem contrato e contraria o manual (Nota 1). A recomendação de ligar em produção está no README e no `config/vipp.php`.
 
 ### 11/11/2026 — relatório da integração do `marcelo-envios` com a produção
 
@@ -14,7 +25,7 @@ O `marcelo-envios` integrou o SDK v0.1.0 com o ViPP de produção e enviou um re
 - README: `ContratoEct` no exemplo de uso; novas seções "Contrato e cartão de postagem", "Descrição do conteúdo" (com um trecho para limpar a descrição), "Códigos de erro observados", "Testar as credenciais" e "Credenciais vindas do banco" (Laravel). "O que difere do manual" passou a cobrir também a produção.
 - Comentários de `ContratoEct` e `ErroVipp` atualizados (erro 91).
 - Packagist confirmado: pacote publicado, webhook `packagist.org/api/github` ativo e `composer require` testado em projeto limpo.
-- As sugestões de código do relatório foram para o "Backlog".
+- As sugestões de código do relatório foram para o "Backlog" e entraram na v0.2.0.
 
 ### 11/11/2026 — lançamento da v0.1.0
 
@@ -68,23 +79,21 @@ Fonte: relatório da integração do `marcelo-envios` (`vipp-php-sdk-gaps.md`), 
 
 | # | Ponto | Observado | Situação |
 |---|---|---|---|
-| 1 | `ContratoEct` | Sem ele: HTTP 400 com `[91] NumeroContrato` e `[91] NumeroCartao`, **descrição vazia** (o SDK exibe "Erro sem descrição"). Com `NrContrato` + `NrCartao`, a mesma postagem foi aceita. A homologação (perfil 9363) não exige | Documentado; validação no backlog |
+| 1 | `ContratoEct` | Sem ele: HTTP 400 com `[91] NumeroContrato` e `[91] NumeroCartao`, **descrição vazia**. Com `NrContrato` + `NrCartao`, a mesma postagem foi aceita. A homologação (perfil 9363) não exige | v0.2.0: `exigirContrato`, mensagem clara e `exigeContrato()` |
 | 2 | Testar credenciais | O ViPP só tem `PostarObjeto`; não existe consulta nem login sem criar postagem | Documentado. `TODO(confirmar)` com a VisualSet se existe algum endpoint de consulta |
 | 3 | Credenciais no banco | O app sobrescreve o vínculo de `VippClientInterface` (`bind`), montando `VippConfig` a partir do banco; `Vipp::fake()` continua funcionando | Documentado (README → Laravel) |
 | 4 | Etiqueta divergente | Ainda não se sabe se o perfil de produção mantém a etiqueta enviada | `TODO(confirmar)` |
 | 5 | Formato do contrato e do cartão | Só dígitos com os zeros à esquerda (cartão com 10 dígitos): aceito. `CodigoAdministrativo` não enviado e não exigido | Sem zeros e `CodigoAdministrativo` em outros perfis: `TODO(confirmar)` |
-| 6 | Descrição do conteúdo | Descrições de NF-e trazem `#`, `&`, aspas e `*`, recusados pela validação local, e o app precisou limpar antes de enviar | Documentado com trecho de código; helper no backlog |
+| 6 | Descrição do conteúdo | Descrições de NF-e trazem `#`, `&`, aspas e `*`, recusados pela validação local, e o app precisou limpar antes de enviar | v0.2.0: `ItemConteudo::limparDescricao()` |
 
 Também confirmado: a produção usa a mesma URL padrão (`https://vpsrv.visualset.com.br`). O app monta `new VippConfig($perfil)` sem `baseUrl` e as postagens são aceitas.
 
 ## Backlog (sugestões de código do relatório do `marcelo-envios`)
 
-Não implementado: o pedido desta sessão foi só de documentação.
-
-- [ ] Validação opcional do contrato: por exemplo, `VippConfig::$exigirContrato` (e `VIPP_EXIGIR_CONTRATO`) para barrar localmente a postagem sem `NrContrato`/`NrCartao`, com mensagem clara. Com padrão `false` não quebra a API; avaliar `true` numa versão 0.2.
-- [ ] `ErroVipp`: quando o código for 91 e a descrição vier vazia, trocar "Erro sem descrição" por "obrigatório neste perfil (erro 91 do ViPP, sem descrição)".
-- [ ] Fixture `producao-400-contrato-91.json` com a resposta do erro 91, sem dados reais, e testes correspondentes.
-- [ ] Helper para a descrição do conteúdo: por exemplo, `ItemConteudo::limparDescricao(string): string` (troca os caracteres não aceitos por espaço, junta espaços e corta em 70), reaproveitando a regex do `ValidadorPostagem`.
+- [x] `VippConfig::$exigirContrato` (`VIPP_EXIGIR_CONTRATO`), padrão `false` (v0.2.0).
+- [x] Erro 91 sem descrição com mensagem clara + `exigeContrato()` (v0.2.0).
+- [x] Fixture `producao-400-contrato-91.json` e testes (v0.2.0).
+- [x] `ItemConteudo::limparDescricao()` (v0.2.0).
 - [ ] `verificarCredenciais()`: só se a VisualSet indicar um endpoint que não crie postagem.
 
 ## Decisões

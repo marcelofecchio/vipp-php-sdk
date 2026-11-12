@@ -32,7 +32,7 @@ use MarceloFecchio\Vipp\Enum\ServicoAdicional;
 use MarceloFecchio\Vipp\Postagem\{ContratoEct, DeclaracaoConteudo, Destinatario, ItemConteudo, Postagem, Volume};
 use MarceloFecchio\Vipp\VippClient;
 
-$vipp = new VippClient(new VippConfig(new PerfilVipp('usuario', 'token', '9363')));
+$vipp = new VippClient(new VippConfig(new PerfilVipp('usuario', 'token', '9363'), exigirContrato: true));
 // Homologação com as credenciais públicas do manual: VippClient::homologacao()
 
 $postagem = new Postagem(
@@ -95,27 +95,28 @@ O manual diz que `ContratoEct` só é necessário quando o Perfil de Importaçã
 
 O ViPP manda o erro 91 com a descrição **vazia**. "Erro sem descrição" é o texto que o SDK coloca nesse caso, então só o nome do campo indica o problema. Com o mesmo payload acrescido de `ContratoEct(nrContrato: …, nrCartao: …)`, a postagem foi aceita.
 
+O ViPP manda o erro 91 sem descrição. O SDK preenche a mensagem com "obrigatório neste perfil (erro 91 do ViPP, sem descrição); informe ContratoEct com NrContrato e NrCartao." e marca `ErroVipp::$semDescricao`. Para detectar o caso no código, use `$resultado->exigeContrato()`.
+
 Recomendações:
 
 - Em produção, **sempre informe `ContratoEct` com `nrContrato` e `nrCartao`**, usando o contrato dos Correios que gerou a etiqueta.
+- **Ligue `exigirContrato`** (`new VippConfig(..., exigirContrato: true)` ou `VIPP_EXIGIR_CONTRATO=true`). A validação local passa a barrar, antes do envio, a postagem sem contrato e cartão, com mensagem clara. O padrão é `false` porque o manual trata o contrato como opcional e a homologação não o exige.
 - Envie só dígitos, mantendo os zeros à esquerda do cadastro dos Correios. O cartão com 10 dígitos e zeros à esquerda foi aceito.
+- Não envie o cartão sem o contrato: a homologação responde com o erro 1100 ("O Número do Cartão É Obrigatóriamente Numérico!"), mesmo o cartão sendo numérico. A validação local barra esse caso sempre.
 - `CodigoAdministrativo` não foi exigido nesse perfil.
-- Erro 91 em `NumeroContrato` ou `NumeroCartao` significa "contrato/cartão obrigatório neste perfil". Trate assim na mensagem ao usuário.
 
 Ainda não confirmado: se o cartão é aceito sem os zeros à esquerda e se algum perfil exige `CodigoAdministrativo`.
 
 ### Descrição do conteúdo
 
-A validação local só aceita, em `DescricaoConteudo`, letras (com acento), dígitos, espaço e `. , - / ( ) % : ; +`, com 3 a 70 caracteres. A SEFAZ recusa emoji e símbolos e cancela a DC-e depois. Descrições vindas de NF-e costumam trazer `#`, `&`, aspas e `*`, e uma única descrição assim reprova a postagem inteira. Por enquanto, limpe a descrição antes de criar o `ItemConteudo`:
+A validação local só aceita, em `DescricaoConteudo`, letras (com acento), dígitos, espaço e `. , - / ( ) % : ; +` (`ItemConteudo::CARACTERES_PERMITIDOS`), com 3 a 70 caracteres. A SEFAZ recusa emoji e símbolos e cancela a DC-e depois. Descrições vindas de NF-e costumam trazer `#`, `&`, aspas e `*`, e uma única descrição assim reprova a postagem inteira. Limpe a descrição com `ItemConteudo::limparDescricao()`:
 
 ```php
-$descricao = preg_replace('/[^\p{L}\p{N} .,\-\/()%:;+]/u', ' ', $descricaoDaNota); // troca o que não é aceito por espaço
-$descricao = mb_substr(trim(preg_replace('/\s+/u', ' ', $descricao)), 0, 70);    // junta espaços e corta em 70
-
-new ItemConteudo($descricao, $quantidade, $valorUnitario);
+new ItemConteudo(ItemConteudo::limparDescricao($descricaoDaNota), $quantidade, $valorUnitario);
+// 'CAMISETA #12 & "PREMIUM" * ALGODÃO' → 'CAMISETA 12 PREMIUM ALGODÃO'
 ```
 
-Se sobrarem menos de 3 caracteres, a validação continua recusando: use uma descrição genérica do produto.
+A função troca os caracteres não aceitos por espaço, junta espaços repetidos e corta em 70 caracteres. Se sobrarem menos de 3 caracteres, a validação continua recusando: use uma descrição genérica do produto.
 
 ### Valores, peso e datas
 
@@ -147,7 +148,8 @@ Para validar sem enviar nada, use `$vipp->validar($postagem)`, que devolve uma l
 
 | Código | Campo | Significado |
 |---|---|---|
-| 91 | `NumeroContrato`, `NumeroCartao` | Contrato ou cartão obrigatório neste perfil. Vem **sem descrição** (visto em produção). |
+| 91 | `NumeroContrato`, `NumeroCartao` | Contrato ou cartão obrigatório neste perfil. Vem **sem descrição** (visto em produção); `$resultado->exigeContrato()` |
+| 1100 | `NrCartao` | Cartão enviado sem o contrato (a mensagem diz "não numérico") |
 | 1000, 1010, 1020 | `Usuario`, `Token`, `IdPerfil` | Credencial não informada |
 | 1002 | `IdPerfil` | Usuário sem acesso ao perfil, ou perfil inexistente (HTTP 401) |
 | 1030 | `Login` | Usuário ou token inválidos (HTTP 401) |
@@ -179,6 +181,7 @@ VIPP_ID_PERFIL=...
 VIPP_BASE_URL=https://vpsrv.visualset.com.br
 VIPP_TIMEOUT=30
 VIPP_VALIDAR_ANTES_DE_ENVIAR=true
+VIPP_EXIGIR_CONTRATO=true      # recomendado em produção; padrão false
 ```
 
 As credenciais só são lidas quando o cliente é usado pela primeira vez, então a aplicação sobe normalmente sem elas.
@@ -200,6 +203,7 @@ public function register(): void
 
         return new VippClient(new VippConfig(
             new PerfilVipp($credenciais->usuario, $credenciais->token, $credenciais->idPerfil),
+            exigirContrato: true,
         ));
     });
 }
@@ -283,13 +287,14 @@ expect($fake->postagens())->toHaveCount(1);
 expect($fake->ultimaPostagem()->volume->etiqueta)->toBe('SQ000352886BR');
 ```
 
-Sem resposta programada, o fake devolve uma postagem válida, repetindo a etiqueta enviada ou gerando uma etiqueta válida. Ele aplica a mesma validação local do cliente real. Fora do Laravel, use `new VippFake()`.
+Sem resposta programada, o fake devolve uma postagem válida, repetindo a etiqueta enviada ou gerando uma etiqueta válida. Ele aplica a mesma validação local do cliente real. Se a aplicação usa `exigirContrato`, chame `Vipp::fake(exigirContrato: true)`. Fora do Laravel, use `new VippFake()`.
 
 ## O que difere do manual do ViPP
 
 Conferido na homologação em 30/10/2026 e em produção (integração do MARCELO ENVIOS) em 11/11/2026. Detalhes em [docs/PROGRESSO.md](docs/PROGRESSO.md).
 
-- **Em produção, `ContratoEct` (`NrContrato` e `NrCartao`) foi obrigatório**, mesmo o manual dizendo que o perfil pode dispensá-lo. Sem ele, o ViPP devolve o erro 91 com a descrição vazia (veja [Contrato e cartão de postagem](#contrato-e-cartão-de-postagem)).
+- **Em produção, `ContratoEct` (`NrContrato` e `NrCartao`) foi obrigatório**, mesmo o manual dizendo que o perfil pode dispensá-lo. Sem ele, o ViPP devolve o erro 91 com a descrição vazia. Use `exigirContrato` (veja [Contrato e cartão de postagem](#contrato-e-cartão-de-postagem)).
+- **Cartão sem contrato dá o erro 1100**, com uma mensagem enganosa ("não numérico").
 - **Datas** precisam de barras (`DD/MM/AAAA`). O formato sem separador citado na Nota 8 é recusado com o erro 1500.
 - **Valores sem separador são lidos como centavos** (`"10"` = R$ 0,10). Por isso o SDK sempre envia `"10,00"`.
 - **Peso com vírgula é truncado** (`"1,6"` = 1 g). Por isso o SDK só aceita gramas inteiros.

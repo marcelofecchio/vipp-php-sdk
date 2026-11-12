@@ -57,3 +57,7 @@ it('permite desligar a validação no fake', function (): void {
 
     expect(new VippFake(validar: false)->postarObjeto(postagemExemplo(destinatario: $destinatario))->ehValida())->toBeTrue();
 });
+
+it('aplica exigirContrato no fake', function (): void {
+    expect(fn() => new VippFake(exigirContrato: true)->postarObjeto(postagemExemplo()))->toThrow(ValidacaoException::class, 'ContratoEct.NrCartao');
+});

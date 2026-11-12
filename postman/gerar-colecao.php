@@ -108,6 +108,13 @@ $dvInvalido['Volumes'][0]['Etiqueta'] = 'SQ123456786BR';
 $dataSemBarras = (new Postagem($destinatario, $volume()))->toArray();
 $dataSemBarras['NotasFiscais'] = [['DtNotaFiscal' => '15072026', 'NrNotaFiscal' => '49906']];
 
+// Em produção, perfis exigem o contrato e o cartão (erro 91); a homologação ignora os valores e usa o do perfil.
+$contrato = ['NrContrato' => '{{nrContrato}}', 'NrCartao' => '{{nrCartao}}'];
+$valida = ['ContratoEct' => $contrato] + $valida;
+$comEtiqueta = ['ContratoEct' => $contrato] + $comEtiqueta;
+
+$cartaoSemContrato = ['ContratoEct' => ['NrCartao' => '{{nrCartao}}']] + (new Postagem($destinatario, $volume()))->toArray();
+
 $colecao = [
     'info' => [
         'name' => 'ViPP — Web Service de Postagem (vipp-php-sdk)',
@@ -162,6 +169,12 @@ $colecao = [
             ['PerfilVipp' => ['Usuario' => '{{usuario}}', 'Token' => 'token-invalido', 'IdPerfil' => '{{idPerfil}}']] + $valida,
             $testesErro(401, 1030),
         ),
+        $requisicao(
+            '07 Cartão sem contrato (400 / 1100)',
+            'Observado na homologação: enviar NrCartao sem NrContrato dá o erro 1100 ("O Número do Cartão É Obrigatóriamente Numérico!"), mesmo com o cartão numérico.',
+            ['PerfilVipp' => $perfil] + $cartaoSemContrato,
+            $testesErro(400, 1100),
+        ),
     ],
     'variable' => [
         ['key' => 'etiquetaInformada', 'value' => 'AA123456785BR'],
@@ -176,6 +189,9 @@ $ambiente = [
         ['key' => 'usuario', 'value' => VippConfig::CREDENCIAIS_HOMOLOGACAO['usuario'], 'type' => 'default', 'enabled' => true],
         ['key' => 'token', 'value' => VippConfig::CREDENCIAIS_HOMOLOGACAO['token'], 'type' => 'secret', 'enabled' => true],
         ['key' => 'idPerfil', 'value' => VippConfig::CREDENCIAIS_HOMOLOGACAO['id_perfil'], 'type' => 'default', 'enabled' => true],
+        // Fictícios: a homologação ignora e usa o contrato do perfil. Em produção, use os dados dos Correios.
+        ['key' => 'nrContrato', 'value' => '9912345678', 'type' => 'default', 'enabled' => true],
+        ['key' => 'nrCartao', 'value' => '0067345678', 'type' => 'default', 'enabled' => true],
         ['key' => 'etiquetaInformada', 'value' => 'AA123456785BR', 'type' => 'default', 'enabled' => true],
     ],
     '_postman_variable_scope' => 'environment',

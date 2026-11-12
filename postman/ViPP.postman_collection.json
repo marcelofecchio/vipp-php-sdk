@@ -39,7 +39,7 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Servico\": {\n        \"ServicoECT\": \"03298\"\n    },\n    \"NotasFiscais\": [\n        {\n            \"DtNotaFiscal\": \"15/07/2026\",\n            \"SerieNotaFiscal\": \"1\",\n            \"NrNotaFiscal\": \"49906\",\n            \"VlrTotalNota\": \"251,96\"\n        }\n    ],\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\"\n        }\n    ]\n}",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"ContratoEct\": {\n        \"NrContrato\": \"{{nrContrato}}\",\n        \"NrCartao\": \"{{nrCartao}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Servico\": {\n        \"ServicoECT\": \"03298\"\n    },\n    \"NotasFiscais\": [\n        {\n            \"DtNotaFiscal\": \"15/07/2026\",\n            \"SerieNotaFiscal\": \"1\",\n            \"NrNotaFiscal\": \"49906\",\n            \"VlrTotalNota\": \"251,96\"\n        }\n    ],\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\"\n        }\n    ]\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -94,7 +94,7 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-COM-ETIQUETA\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\",\n            \"Etiqueta\": \"{{etiquetaInformada}}\"\n        }\n    ]\n}",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"ContratoEct\": {\n        \"NrContrato\": \"{{nrContrato}}\",\n        \"NrCartao\": \"{{nrCartao}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-COM-ETIQUETA\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\",\n            \"Etiqueta\": \"{{etiquetaInformada}}\"\n        }\n    ]\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -303,7 +303,59 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"token-invalido\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Servico\": {\n        \"ServicoECT\": \"03298\"\n    },\n    \"NotasFiscais\": [\n        {\n            \"DtNotaFiscal\": \"15/07/2026\",\n            \"SerieNotaFiscal\": \"1\",\n            \"NrNotaFiscal\": \"49906\",\n            \"VlrTotalNota\": \"251,96\"\n        }\n    ],\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\"\n        }\n    ]\n}",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"token-invalido\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"ContratoEct\": {\n        \"NrContrato\": \"{{nrContrato}}\",\n        \"NrCartao\": \"{{nrCartao}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Servico\": {\n        \"ServicoECT\": \"03298\"\n    },\n    \"NotasFiscais\": [\n        {\n            \"DtNotaFiscal\": \"15/07/2026\",\n            \"SerieNotaFiscal\": \"1\",\n            \"NrNotaFiscal\": \"49906\",\n            \"VlrTotalNota\": \"251,96\"\n        }\n    ],\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/middleware/PostarObjeto",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "middleware",
+                        "PostarObjeto"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "07 Cartão sem contrato (400 / 1100)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('StatusPostagem = Invalida', () => pm.expect(corpo.StatusPostagem).to.eql('Invalida'));",
+                            "pm.test('ListaErros contém o erro 1100', () => pm.expect(corpo.ListaErros.map(e => e.CodigoErro)).to.include(1100));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "description": "Observado na homologação: enviar NrCartao sem NrContrato dá o erro 1100 (\"O Número do Cartão É Obrigatóriamente Numérico!\"), mesmo com o cartão numérico.",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Accept-Encoding",
+                        "value": "UTF-8"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"PerfilVipp\": {\n        \"Usuario\": \"{{usuario}}\",\n        \"Token\": \"{{token}}\",\n        \"IdPerfil\": \"{{idPerfil}}\"\n    },\n    \"ContratoEct\": {\n        \"NrCartao\": \"{{nrCartao}}\"\n    },\n    \"Destinatario\": {\n        \"Nome\": \"Teste de WebService\",\n        \"Endereco\": \"R Conselheiro Nebias\",\n        \"Numero\": \"263\",\n        \"Complemento\": \"7 Andar\",\n        \"Bairro\": \"Campos Eliseos\",\n        \"Cidade\": \"Sao Paulo\",\n        \"UF\": \"SP\",\n        \"Cep\": \"01203001\",\n        \"Celular\": \"11937378999\",\n        \"Email\": \"teste@example.com\"\n    },\n    \"Volumes\": [\n        {\n            \"Peso\": \"1600\",\n            \"Altura\": \"4\",\n            \"Largura\": \"11\",\n            \"Comprimento\": \"16\",\n            \"CodigoBarraVolume\": \"PEDIDO-POSTMAN\",\n            \"DeclaracaoConteudo\": {\n                \"ItemConteudo\": [\n                    {\n                        \"DescricaoConteudo\": \"Camiseta algodao\",\n                        \"Quantidade\": 2,\n                        \"Valor\": \"125,98\"\n                    }\n                ],\n                \"DocumentoRemetente\": \"03998581000190\",\n                \"DocumentoDestinatario\": \"52998224725\"\n            },\n            \"ValorDeclarado\": \"150,00\",\n            \"AdicionaisVolume\": \"AR\"\n        }\n    ]\n}",
                     "options": {
                         "raw": {
                             "language": "json"

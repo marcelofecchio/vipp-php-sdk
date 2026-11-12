@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
+use MarceloFecchio\Vipp\Postagem\ContratoEct;
 use MarceloFecchio\Vipp\Postagem\Destinatario;
 use MarceloFecchio\Vipp\Postagem\ItemConteudo;
 use MarceloFecchio\Vipp\Postagem\NotaFiscal;
@@ -150,4 +151,25 @@ it('lança ValidacaoException com todas as violações em garantir()', function 
             ->and($e->getMessage())->toContain('Destinatario.Nome: obrigatório.')
             ->toContain('Destinatario.Cep');
     }
+});
+
+it('exige contrato e cartão quando exigirContrato está ligado', function (?ContratoEct $contrato, array $campos): void {
+    $postagem = new Postagem(destinatarioExemplo(), volumeCom(), contratoEct: $contrato);
+
+    expect(array_map(static fn(Violacao $v): string => $v->campo, new ValidadorPostagem(exigirContrato: true)->validar($postagem)))->toBe($campos);
+})->with([
+    'sem ContratoEct' => [null, ['ContratoEct.NrContrato', 'ContratoEct.NrCartao']],
+    'só contrato' => [new ContratoEct('9912345678'), ['ContratoEct.NrCartao']],
+    'só cartão' => [new ContratoEct(nrCartao: '0067345678'), ['ContratoEct.NrContrato']],
+    'completo, com zeros à esquerda' => [new ContratoEct('9912345678', null, '0067345678'), []],
+]);
+
+it('não exige contrato por padrão', function (): void {
+    expect(camposViolados(postagemExemplo()))->toBe([]);
+});
+
+it('recusa cartão sem contrato mesmo sem exigirContrato (erro 1100 na homologação)', function (): void {
+    $postagem = new Postagem(destinatarioExemplo(), volumeCom(), contratoEct: new ContratoEct(nrCartao: '0067335344'));
+
+    expect(camposViolados($postagem))->toBe(['ContratoEct.NrContrato']);
 });

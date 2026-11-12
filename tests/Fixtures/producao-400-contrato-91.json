@@ -1,0 +1,17 @@
+{
+    "ListaErros": [
+        {
+            "CodigoErro": 91,
+            "Campo": "NumeroContrato",
+            "Descricao": ""
+        },
+        {
+            "CodigoErro": 91,
+            "Campo": "NumeroCartao",
+            "Descricao": ""
+        }
+    ],
+    "StPostagem": 0,
+    "IdStatusPostagem": 0,
+    "StatusPostagem": "Invalida"
+}

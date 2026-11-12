@@ -46,3 +46,13 @@ it('publica o arquivo de configuração com a tag vipp-config', function (): voi
         ->and(str_replace('\\', '/', (string) array_key_first($caminhos)))->toEndWith('/config/vipp.php')
         ->and(array_values($caminhos)[0])->toBe(config_path('vipp.php'));
 });
+
+it('liga exigirContrato pela configuração', function (): void {
+    expect(config('vipp.exigir_contrato'))->toBeFalse()
+        ->and(app(VippConfig::class)->exigirContrato)->toBeFalse();
+
+    config()->set('vipp.exigir_contrato', 'true');
+    app()->forgetInstance(VippConfig::class);
+
+    expect(app(VippConfig::class)->exigirContrato)->toBeTrue();
+});
