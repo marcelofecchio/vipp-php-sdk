@@ -4,7 +4,7 @@
 
 **v0.2.0 lançada em 11/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook). Todos os requisitos de `docs/PROMPT-INICIAL.md` e o backlog do relatório do `marcelo-envios` estão implementados (exceto `verificarCredenciais()`, que depende da VisualSet). `composer qa` passa, com 139 testes unitários/Laravel. A integração (2 de 2) e a coleção Postman (7 requisições, 23 de 23 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
 
-**Em desenvolvimento (branch `feat/excluir-postagem`, ainda sem PR mesclado):** `excluirPostagem()` (ver histórico de 13/11/2026). `composer qa` com 155 testes; integração 4 de 4; Postman 9 requisições, 27 de 27 asserções.
+**Em desenvolvimento (branch `feat/excluir-postagem`, **sem PR, a pedido do usuário**):** `excluirPostagem()`, `situacaoPostagem()` e `verificarCredenciais()` (ver histórico de 13/11/2026). `composer qa` com 174 testes; integração 8 de 8; Postman 11 requisições, 31 de 31 asserções.
 
 **Próximo passo recomendado:** (1) com a AGF, criar um **perfil de importação só para rastreamento** e usá-lo no `marcelo-envios`: sem ele o ViPP troca a etiqueta enviada; (2) obter um objeto "pré-postado aguardando liberação" e exercitar a exclusão de verdade (hoje só o caminho "nada excluído" foi testado); (3) no `marcelo-envios`, atualizar para `^0.2`, ligar `exigirContrato`, trocar a limpeza manual da descrição por `ItemConteudo::limparDescricao()` e usar `exigeContrato()` na mensagem ao ADM.
 
@@ -32,6 +32,15 @@ Achados da sondagem (homologação, só com postagens de teste criadas por mim):
 - `DeleteConhecimento` com etiqueta inexistente ou **sem objeto elegível** responde **200 com tudo zerado**, e não erro. Os objetos criados pelo `PostarObjeto` na homologação continuaram existindo depois do `DELETE` (conferido por `GetSituacaoPostagem`).
 - Um `DELETE` com outro nome de cabeçalho para a etiqueta (`EtiquetaPostagem`, `NrEtiquetaPostagem`) deu 400 com erro de SQL vazando o nome da rotina (`ConhecimentoListarParaExcluirPPN`, parâmetro `@ValorDaBusca`). Ou seja, o cabeçalho correto é `Etiqueta`.
 - Os erros 401 da exclusão têm outro formato: `{"Message": "[{...}]"}` (JSON dentro de string).
+
+**Segunda parte (mesma branch): `situacaoPostagem()` e `verificarCredenciais()`** sobre `GetSituacaoPostagem`:
+- `situacaoPostagem(valor, BuscarPor, completo, perfil)` devolve `list<SituacaoPostagem>` (vazia no 204). `BuscarPor`: `Etiqueta` (`EtiquetaPostagem`), `Referencia` (`ObservacaoUm`, que é o `CodigoBarraVolume` enviado) e `ReferenciaDois` (listado pela API, não exercitado). Um valor por chamada.
+- Conferido: `ObservacaoUm` localiza a postagem pela referência enviada. Isso resolve a recuperação de exportação sem resposta (timeout) do `marcelo-envios`: consultar por `ME-{id}` antes de reenviar. Há teste de integração criando uma postagem e encontrando-a pela referência.
+- `verificarCredenciais()` consulta uma etiqueta inexistente (`SQ000000005BR`) e devolve `ResultadoConexao` (401 não vira exceção). **Não confere o `IdPerfil`** (o endpoint não o recebe).
+- **Senha na URL**: `Mascara` passou a mascarar `Senha=`/`Token=` e `Transport::get()` mascara a mensagem de falha de rede e **não encadeia** a exceção original, que traria a URL com a senha.
+- **204 malformado**: o servidor responde `204 No Content` com `Content-Length: 163` e sem corpo. cURL/Guzzle toleram; o Postman falha (`Parse Error`), então a coleção não tem a requisição "204". Clientes PSR-18 estritos podem falhar (virariam `TransporteException`).
+- Fixtures capturadas e **sanitizadas** (e-mail de uma pessoa e CPF do remetente de teste trocados por valores fictícios).
+- Postman: 10 (situação da postagem criada na 01) e 11 (401/1030).
 
 Feito no SDK (branch `feat/excluir-postagem`): `excluirPostagem()` + `ResultadoExclusao` (`excluida()` = `ConhecimentosExcluidos > 0`), `VippFake`/`Vipp::fake()`, fixtures (3 capturadas e 1 inferida), testes unitários e de integração (só com etiqueta inexistente), Postman 08 e 09, README/CHANGELOG/CLAUDE.md. **Limitação conhecida:** o caminho de sucesso real não foi exercitado, e a regra "excluída = `ConhecimentosExcluidos > 0`" é uma inferência.
 
@@ -121,7 +130,8 @@ Também confirmado: a produção usa a mesma URL padrão (`https://vpsrv.visuals
 - [x] Erro 91 sem descrição com mensagem clara + `exigeContrato()` (v0.2.0).
 - [x] Fixture `producao-400-contrato-91.json` e testes (v0.2.0).
 - [x] `ItemConteudo::limparDescricao()` (v0.2.0).
-- [ ] `verificarCredenciais()` e `situacaoPostagem()` sobre `GetSituacaoPostagem` (ver 13/11/2026): endpoint existe, valida credenciais sem criar postagem e devolve a situação do objeto. Falta decidir o escopo e capturar uma resposta 200 completa para as fixtures.
+- [x] `verificarCredenciais()` e `situacaoPostagem()` sobre `GetSituacaoPostagem` (13/11/2026, branch `feat/excluir-postagem`).
+- [ ] Consulta de situação com **mais de um valor** por chamada (o formato de `ListaObjeto` com vários valores é desconhecido; ver a pergunta ao suporte) e rastreamento (`ListarRastreioObjeto`).
 - [x] `excluirPostagem()` sobre `DeleteConhecimento` (13/11/2026, branch `feat/excluir-postagem`).
 
 ## Decisões
@@ -144,6 +154,7 @@ Também confirmado: a produção usa a mesma URL padrão (`https://vpsrv.visuals
 - [x] `CodigoAdministrativo` não é exigido (suporte, 13/11/2026). **Sem resposta:** se o cartão é aceito sem os zeros à esquerda.
 - [x] ~~Endpoint de consulta/login~~: o suporte disse que não existe, mas `GetSituacaoPostagem` existe (13/11/2026); ver Backlog.
 - [ ] **TODO(confirmar)** com a VisualSet: como obter, na homologação, um objeto "pré-postado aguardando liberação" (perfil ou opção de importação) para testar a exclusão com sucesso; e qual é o formato real da resposta de sucesso (o suporte falou em "IDconhecimento 0/1", e o servidor devolve contagens).
+- [ ] **TODO(confirmar)**: formato de `ListaObjeto` com várias etiquetas no `GetSituacaoPostagem`; valores de `BuscarPor` (`ObservacaoDois`); e se o `204` com `Content-Length: 163` sem corpo é intencional.
 - [ ] **TODO(confirmar)**: significado de `ObjetoEPPN` na resposta da exclusão, e de `BloquearDownloadConhecimento`/`BloquearObjetoCorreios` (resposta contraditória do suporte).
 - [x] O servidor de produção é o mesmo `vpsrv.visualset.com.br`, só com outras credenciais (11/11/2026, pela integração do `marcelo-envios`).
 - [ ] Conjunto exato de caracteres aceitos pela SEFAZ na descrição da DC-e.

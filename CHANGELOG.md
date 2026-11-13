@@ -8,18 +8,24 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 - `VippClient::excluirPostagem(string $etiqueta, ?PerfilVipp $perfil = null)` e `ResultadoExclusao` (`DeleteConhecimento`, `DELETE` com `Usuario`, `Token` e `Etiqueta` em cabeçalhos). Só exclui objetos pré-postados aguardando liberação; etiqueta sem objeto elegível volta como resultado com `excluida() === false`. O caminho de sucesso não foi verificado em ambiente real (ver README).
 - `VippClientInterface::excluirPostagem()`, `VippFake::excluirPostagem()` / `responderExclusaoCom()` / `exclusoes()` / `resultadoExclusao()` e `Vipp::excluirPostagem()`.
-- `VippConfig::urlExcluirPostagem()` e `Support\Leitor::listaDeMessage()` (erros da exclusão vêm como `{"Message": "[{...}]"}`).
+- `VippClient::situacaoPostagem()` (`GetSituacaoPostagem`, somente leitura) com `SituacaoPostagem` e o enum `BuscarPor` (etiqueta ou referência). Permite conferir uma exportação sem resposta pela referência enviada em `codigoBarraVolume`.
+- `VippClient::verificarCredenciais()` e `ResultadoConexao`: confere usuário e token sem criar postagem. O `IdPerfil` não é conferido.
+- `Http\Mascara` também mascara `Senha=` e `Token=` em URLs, e a falha de rede da consulta de situação não encadeia a exceção original (a URL leva a senha).
+- Fixtures capturadas da homologação para a situação (`homologacao-200-situacao-resumo`, `-completa`, `homologacao-401-situacao-login`), sem e-mail nem CPF do remetente de teste.
+- `VippFake`: `responderSituacaoCom()`, `consultas()`, `situacao()`, `responderConexaoCom()` e `conexaoRecusada()`; Facade `Vipp::situacaoPostagem()` e `Vipp::verificarCredenciais()`.
+- Coleção Postman: requisições 10 (situação da postagem criada na 01) e 11 (credenciais inválidas, 401). A consulta com resultado vazio (204) fica fora: o ViPP envia `Content-Length: 163` sem corpo e o Postman recusa a resposta.
+- `VippConfig::urlExcluirPostagem()`, `urlSituacaoPostagem()` e `Support\Leitor::listaDeMessage()` (erros da exclusão vêm como `{"Message": "[{...}]"}`).
 - Fixtures capturadas da homologação para a exclusão (`homologacao-200-exclusao-nada-excluido`, `homologacao-401-exclusao-login`, `homologacao-401-exclusao-sem-credenciais`) e uma fixture inferida (`inferida-200-exclusao-ok`).
 - Coleção Postman: requisições 08 (exclusão sem objeto elegível) e 09 (exclusão com token errado), ambas seguras.
 
 ### Alterado
 
-- **Quem implementa `VippClientInterface` por conta própria precisa adicionar `excluirPostagem()`.** O `VippFake` do pacote já tem.
+- **Quem implementa `VippClientInterface` por conta própria precisa adicionar `excluirPostagem()`, `situacaoPostagem()` e `verificarCredenciais()`.** O `VippFake` do pacote já tem.
 
 ### Documentação
 
 - Respostas do suporte da VisualSet (13/11/2026): para enviar etiqueta já gerada é preciso um perfil de importação só para rastreamento; o contrato depende da configuração do perfil; `CodigoAdministrativo` não é exigido.
-- README: seção "Excluir uma postagem" e correção de "Testar as credenciais": existe `GetSituacaoPostagem`, que valida usuário e senha sem criar postagem (o SDK ainda não o expõe).
+- README: seções "Excluir uma postagem", "Consultar a situação de uma postagem" e "Cuidados com a consulta de situação", e correção de "Testar as credenciais": o endpoint existe, ao contrário do que o suporte informou.
 
 ## [0.2.0] - 2026-11-11
 

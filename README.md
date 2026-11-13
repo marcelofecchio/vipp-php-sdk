@@ -7,6 +7,7 @@ SDK PHP 8.4 para o **Web Service de Postagem do ViPP** (VisualSet), o sistema us
 - **Validação local** das regras do manual antes do envio, com mensagens por campo.
 - Resultado tipado: etiqueta, valores, prazo e erros do ViPP.
 - **Exclusão** de postagens pré-postadas aguardando liberação (`excluirPostagem()`).
+- **Consulta de situação** (`situacaoPostagem()`), inclusive pela sua referência, e **teste de credenciais** sem criar postagem (`verificarCredenciais()`).
 - **Integração com Laravel** (auto-discovery, `config/vipp.php`, Facade `Vipp`, `Vipp::fake()`).
 - Comportamento conferido na homologação real; veja [o que difere do PDF](#o-que-difere-do-manual-do-vipp).
 
@@ -143,7 +144,7 @@ A função troca os caracteres não aceitos por espaço, junta espaços repetido
 
 Todas implementam `MarceloFecchio\Vipp\Exceptions\VippException`.
 
-**O SDK não repete requisições automaticamente.** A postagem não é idempotente, e um reenvio após timeout pode duplicar o objeto. Antes de reenviar, consulte o ViPP (pelo `CodigoBarraVolume`, que é indexado).
+**O SDK não repete requisições automaticamente.** A postagem não é idempotente, e um reenvio após timeout pode duplicar o objeto. Antes de reenviar, consulte o ViPP pela sua referência (`codigoBarraVolume`, que é indexado) com [`situacaoPostagem()`](#consultar-a-situação-de-uma-postagem).
 
 Para validar sem enviar nada, use `$vipp->validar($postagem)`, que devolve uma lista de `Violacao`.
 
@@ -183,11 +184,53 @@ A exclusão (`DeleteConhecimento`) **não consta no manual**: foi encontrada na 
 
 **Não verificado:** o caminho de sucesso. Na homologação, o perfil 9363 cria os objetos já postados (não "aguardando liberação"), então nenhuma exclusão com sucesso real foi possível. O SDK considera excluído quando `ConhecimentosExcluidos` é maior que zero, a partir do formato visto com tudo zerado. O suporte descreveu a resposta de outra forma ("IDconhecimento 0 ou 1"), que não apareceu em nenhum teste. Se o seu primeiro teste real divergir, avise: o dado bruto fica em `$resultado->resposta`.
 
+### Consultar a situação de uma postagem
+
+```php
+use MarceloFecchio\Vipp\Enum\BuscarPor;
+
+$lista = $vipp->situacaoPostagem('SQ000352886BR');                       // pela etiqueta
+$lista = $vipp->situacaoPostagem('ME-1234', BuscarPor::Referencia);      // pela sua referência (codigoBarraVolume)
+$lista = $vipp->situacaoPostagem('ME-1234', BuscarPor::Referencia, completo: true); // inclui o idConhecimento
+
+foreach ($lista as $situacao) {
+    $situacao->etiqueta;          // "SQ000352886BR"
+    $situacao->referencia;        // "ME-1234"
+    $situacao->valorPostagem;     // Dinheiro
+    $situacao->prazoEntrega;      // dias úteis
+    $situacao->etiquetaImpressa;  // bool
+    $situacao->idConhecimento;    // só com completo: true
+}
+```
+
+É uma consulta **somente leitura** (`GetSituacaoPostagem`, fora do manual). Devolve lista vazia quando o ViPP não encontra nada (ele responde HTTP 204).
+
+**Para conferir uma exportação que ficou sem resposta (timeout):** consulte pela referência que você enviou em `Volume::$codigoBarraVolume`. Se a lista vier com a postagem, ela foi criada: **não reenvie**, use a etiqueta devolvida. Se vier vazia, a postagem não existe e é seguro reenviar.
+
+Limitações observadas: aceita **um valor por chamada** (vírgula, `;`, `|` e espaço não separaram dois valores), e o parâmetro `BuscarPor=ObservacaoDois` consta como válido, mas não foi exercitado.
+
 ### Testar as credenciais
 
-O manual não tem consulta nem login, e o suporte da VisualSet respondeu que não existe endpoint assim. **Mas o servidor tem um:** `GET /api/v1/conhecimento/GetSituacaoPostagem` (parâmetros `Usuario`, `Senha`, `StDadosCompletos` `0`/`1`, `BuscarPor=EtiquetaPostagem` e `ListaObjeto`). Na homologação, ele responde 401 com erro 1030 para senha errada, e 204 para senha certa com uma etiqueta inexistente, sem criar nenhuma postagem. O SDK **ainda não tem método para ele**. Se precisar de um botão "Testar conexão", dá para fazer essa chamada fora do SDK. Até lá, a primeira postagem também confirma as credenciais: um HTTP 401 vira `AutenticacaoException`, com o erro 1030 (usuário ou token) ou 1002 (perfil).
+```php
+$conexao = $vipp->verificarCredenciais();
+
+if (!$conexao->autenticado) {
+    $conexao->mensagensDeErro();   // ["[1030] Login: Usuário ou Senha Inválidos!"]
+}
+```
+
+Usa a mesma consulta de situação, com uma etiqueta que não existe, então **não cria nem altera nada**. Credencial recusada volta como resultado (`autenticado` falso), não como exceção, porque é isso que o método existe para descobrir. Falha de rede e erros HTTP lançam as exceções de sempre. Serve para um botão "Testar conexão".
+
+**O `IdPerfil` não é conferido**: a consulta só recebe usuário e token. Um perfil errado só aparece na primeira postagem (erro 1002).
+
+O manual não tem esse recurso, e o suporte da VisualSet respondeu que não existe endpoint assim, mas ele existe e foi verificado na homologação.
 
 `validar()` é só local: confere os dados da postagem, mas não usuário, token nem perfil.
+
+### Cuidados com a consulta de situação
+
+- **A senha vai na URL** (`?Senha=...`): é como o ViPP exige. O SDK mascara a URL nas mensagens de erro e, nessa chamada, não encadeia a exceção original do cliente HTTP, porque ela traz a URL. Se você usar um cliente HTTP próprio com log de requisições, **ele vai registrar a senha**: filtre o parâmetro `Senha`.
+- **O ViPP responde `204 No Content` com `Content-Length: 163` e sem corpo**, o que é uma resposta mal formada. O cURL (usado pelo Guzzle) tolera. Clientes HTTP estritos podem lançar erro de leitura, que o SDK devolve como `TransporteException`. Foi o caso do Postman, por isso a coleção não tem essa requisição.
 
 ## Laravel
 
@@ -311,7 +354,7 @@ expect($fake->postagens())->toHaveCount(1);
 expect($fake->ultimaPostagem()->volume->etiqueta)->toBe('SQ000352886BR');
 ```
 
-Sem resposta programada, o fake devolve uma postagem válida, repetindo a etiqueta enviada ou gerando uma etiqueta válida. Ele aplica a mesma validação local do cliente real. Se a aplicação usa `exigirContrato`, chame `Vipp::fake(exigirContrato: true)`. Para a exclusão, `$fake->exclusoes()` lista as etiquetas recebidas e `$fake->responderExclusaoCom(VippFake::resultadoExclusao(excluida: false))` programa a resposta. Fora do Laravel, use `new VippFake()`.
+Sem resposta programada, o fake devolve uma postagem válida, repetindo a etiqueta enviada ou gerando uma etiqueta válida. Ele aplica a mesma validação local do cliente real. Se a aplicação usa `exigirContrato`, chame `Vipp::fake(exigirContrato: true)`. Para a exclusão, `$fake->exclusoes()` lista as etiquetas recebidas e `$fake->responderExclusaoCom(VippFake::resultadoExclusao(excluida: false))` programa a resposta. Para a consulta, `$fake->responderSituacaoCom([VippFake::situacao('SQ000352886BR', 'ME-1234')])` e `$fake->consultas()`. Para as credenciais, `$fake->responderConexaoCom(VippFake::conexaoRecusada())`. Fora do Laravel, use `new VippFake()`.
 
 ## O que difere do manual do ViPP
 
@@ -324,7 +367,7 @@ Conferido na homologação em 30/10/2026 e em produção (integração do MARCEL
 - **Peso com vírgula é truncado** (`"1,6"` = 1 g). Por isso o SDK só aceita gramas inteiros.
 - **Só o primeiro volume da lista é processado**: os demais são descartados sem aviso. Por isso o SDK envia um volume por postagem.
 - **Etiqueta informada pode ser substituída**: o ViPP só mantém a etiqueta com um perfil de importação criado para rastreamento (veja `etiquetaDivergente()`).
-- **O manual só descreve o `PostarObjeto`**, mas o servidor tem outros endpoints. Dois já foram usados: a [exclusão](#excluir-uma-postagem) e a consulta que serve para [testar as credenciais](#testar-as-credenciais).
+- **O manual só descreve o `PostarObjeto`**, mas o servidor tem outros endpoints. Três já foram usados: a [exclusão](#excluir-uma-postagem), a [consulta de situação](#consultar-a-situação-de-uma-postagem) e o [teste de credenciais](#testar-as-credenciais), que usa a consulta.
 - **Os erros da exclusão vêm diferentes**: `{"Message": "[{...}]"}`, com a lista de erros em JSON dentro de uma string. O SDK já trata isso.
 - **HTTP 400** para erros de validação e **401** para credenciais ou perfil inválidos. O manual não deixa isso claro.
 - A homologação aceita dados que os Correios e a SEFAZ recusam depois, como emoji na descrição, item acima de R$ 100 mil e CPF inválido. A validação local do SDK bloqueia esses casos.
