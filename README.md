@@ -6,6 +6,7 @@ SDK PHP 8.4 para o **Web Service de Postagem do ViPP** (VisualSet), o sistema us
 - DTOs imutáveis em português, espelhando os campos do ViPP.
 - **Validação local** das regras do manual antes do envio, com mensagens por campo.
 - Resultado tipado: etiqueta, valores, prazo e erros do ViPP.
+- **Exclusão** de postagens pré-postadas aguardando liberação (`excluirPostagem()`).
 - **Integração com Laravel** (auto-discovery, `config/vipp.php`, Facade `Vipp`, `Vipp::fake()`).
 - Comportamento conferido na homologação real; veja [o que difere do PDF](#o-que-difere-do-manual-do-vipp).
 
@@ -82,7 +83,7 @@ Um exemplo executável está em [examples/postar-objeto.php](examples/postar-obj
 
 ### Etiqueta já gerada nos Correios
 
-Quando o `Volume` recebe `etiqueta`, o SDK confere o formato (`AA123456785BR`) e o dígito verificador antes de enviar. Depois, **sempre confira `etiquetaDivergente()`**: na homologação o perfil 9363 ignora a etiqueta enviada e gera outra. Em produção, o comportamento depende da configuração do Perfil de Importação feita pela AGF e **ainda não foi confirmado**. Guarde a etiqueta devolvida por `etiqueta()` e avise o operador quando houver divergência.
+Quando o `Volume` recebe `etiqueta`, o SDK confere o formato (`AA123456785BR`) e o dígito verificador antes de enviar. Depois, **sempre confira `etiquetaDivergente()`**: na homologação o perfil 9363 ignora a etiqueta enviada e gera outra. Segundo o suporte da VisualSet (13/11/2026), **para enviar um objeto com a etiqueta já gerada é preciso um Perfil de Importação criado só para rastreamento**. Peça à AGF um perfil assim e use o `idPerfil` dele. Com um perfil comum, o ViPP gera a própria etiqueta, como no perfil 9363 da homologação. Guarde a etiqueta devolvida por `etiqueta()` e avise o operador quando houver divergência.
 
 ### Contrato e cartão de postagem
 
@@ -95,6 +96,8 @@ O manual diz que `ContratoEct` só é necessário quando o Perfil de Importaçã
 
 O ViPP manda o erro 91 com a descrição **vazia**. "Erro sem descrição" é o texto que o SDK coloca nesse caso, então só o nome do campo indica o problema. Com o mesmo payload acrescido de `ContratoEct(nrContrato: …, nrCartao: …)`, a postagem foi aceita.
 
+Segundo o suporte da VisualSet, a exigência depende do Perfil de Importação: se ele está configurado para o ViPP importar o contrato, não é preciso enviar; se está configurado para respeitar a chamada, `NrContrato` e `NrCartao` são obrigatórios. Pergunte à AGF como o seu perfil está.
+
 O ViPP manda o erro 91 sem descrição. O SDK preenche a mensagem com "obrigatório neste perfil (erro 91 do ViPP, sem descrição); informe ContratoEct com NrContrato e NrCartao." e marca `ErroVipp::$semDescricao`. Para detectar o caso no código, use `$resultado->exigeContrato()`.
 
 Recomendações:
@@ -103,9 +106,9 @@ Recomendações:
 - **Ligue `exigirContrato`** (`new VippConfig(..., exigirContrato: true)` ou `VIPP_EXIGIR_CONTRATO=true`). A validação local passa a barrar, antes do envio, a postagem sem contrato e cartão, com mensagem clara. O padrão é `false` porque o manual trata o contrato como opcional e a homologação não o exige.
 - Envie só dígitos, mantendo os zeros à esquerda do cadastro dos Correios. O cartão com 10 dígitos e zeros à esquerda foi aceito.
 - Não envie o cartão sem o contrato: a homologação responde com o erro 1100 ("O Número do Cartão É Obrigatóriamente Numérico!"), mesmo o cartão sendo numérico. A validação local barra esse caso sempre.
-- `CodigoAdministrativo` não foi exigido nesse perfil.
+- `CodigoAdministrativo` não é exigido (observado em produção e confirmado pelo suporte).
 
-Ainda não confirmado: se o cartão é aceito sem os zeros à esquerda e se algum perfil exige `CodigoAdministrativo`.
+Sem resposta do suporte: se o cartão é aceito sem os zeros à esquerda. Por segurança, envie com os zeros.
 
 ### Descrição do conteúdo
 
@@ -159,11 +162,32 @@ Para validar sem enviar nada, use `$vipp->validar($postagem)`, que devolve uma l
 | 2200 | `DescricaoConteudo` | Descrição do item ausente ou com menos de 3 caracteres |
 | 2222 | `Valor` | Valor do item não numérico |
 
+### Excluir uma postagem
+
+```php
+$resultado = $vipp->excluirPostagem('SQ000352886BR');
+
+if ($resultado->excluida()) {
+    // o ViPP excluiu o objeto
+} else {
+    // nada foi excluído: etiqueta inexistente ou fora do status "aguardando liberação"
+}
+```
+
+A exclusão (`DeleteConhecimento`) **não consta no manual**: foi encontrada na documentação interativa do servidor (`/swagger`) e explicada pelo suporte da VisualSet em 13/11/2026.
+
+- Só exclui objetos **pré-postados com status "aguardando liberação"**. Para qualquer outra etiqueta, **inclusive uma inexistente, o ViPP responde HTTP 200 com tudo zerado**, e não um erro. Por isso o SDK devolve um `ResultadoExclusao`; confira sempre `excluida()`.
+- A etiqueta excluída **não volta a ficar livre**: para postar de novo é preciso refazer a postagem.
+- O SDK valida o formato e o dígito verificador da etiqueta antes de enviar (`ValidacaoException`). Usuário ou token recusados viram `AutenticacaoException`.
+- A chamada é um `DELETE` sem corpo, com `Usuario`, `Token` e `Etiqueta` em **cabeçalhos**. O `IdPerfil` não é enviado.
+
+**Não verificado:** o caminho de sucesso. Na homologação, o perfil 9363 cria os objetos já postados (não "aguardando liberação"), então nenhuma exclusão com sucesso real foi possível. O SDK considera excluído quando `ConhecimentosExcluidos` é maior que zero, a partir do formato visto com tudo zerado. O suporte descreveu a resposta de outra forma ("IDconhecimento 0 ou 1"), que não apareceu em nenhum teste. Se o seu primeiro teste real divergir, avise: o dado bruto fica em `$resultado->resposta`.
+
 ### Testar as credenciais
 
-**O ViPP não tem endpoint de consulta nem de login**: o único método é `PostarObjeto`. Por isso não existe como "testar a conexão" sem criar uma postagem real na agência. `validar()` é só local: confere os dados da postagem, mas não usuário, token nem perfil.
+O manual não tem consulta nem login, e o suporte da VisualSet respondeu que não existe endpoint assim. **Mas o servidor tem um:** `GET /api/v1/conhecimento/GetSituacaoPostagem` (parâmetros `Usuario`, `Senha`, `StDadosCompletos` `0`/`1`, `BuscarPor=EtiquetaPostagem` e `ListaObjeto`). Na homologação, ele responde 401 com erro 1030 para senha errada, e 204 para senha certa com uma etiqueta inexistente, sem criar nenhuma postagem. O SDK **ainda não tem método para ele**. Se precisar de um botão "Testar conexão", dá para fazer essa chamada fora do SDK. Até lá, a primeira postagem também confirma as credenciais: um HTTP 401 vira `AutenticacaoException`, com o erro 1030 (usuário ou token) ou 1002 (perfil).
 
-Na prática, a primeira postagem confirma as credenciais. Um HTTP 401 vira `AutenticacaoException`, com o erro 1030 (usuário ou token) ou 1002 (perfil). Se a sua aplicação tem uma tela de credenciais, explique isso ao usuário em vez de oferecer um botão "Testar conexão".
+`validar()` é só local: confere os dados da postagem, mas não usuário, token nem perfil.
 
 ## Laravel
 
@@ -287,7 +311,7 @@ expect($fake->postagens())->toHaveCount(1);
 expect($fake->ultimaPostagem()->volume->etiqueta)->toBe('SQ000352886BR');
 ```
 
-Sem resposta programada, o fake devolve uma postagem válida, repetindo a etiqueta enviada ou gerando uma etiqueta válida. Ele aplica a mesma validação local do cliente real. Se a aplicação usa `exigirContrato`, chame `Vipp::fake(exigirContrato: true)`. Fora do Laravel, use `new VippFake()`.
+Sem resposta programada, o fake devolve uma postagem válida, repetindo a etiqueta enviada ou gerando uma etiqueta válida. Ele aplica a mesma validação local do cliente real. Se a aplicação usa `exigirContrato`, chame `Vipp::fake(exigirContrato: true)`. Para a exclusão, `$fake->exclusoes()` lista as etiquetas recebidas e `$fake->responderExclusaoCom(VippFake::resultadoExclusao(excluida: false))` programa a resposta. Fora do Laravel, use `new VippFake()`.
 
 ## O que difere do manual do ViPP
 
@@ -299,8 +323,9 @@ Conferido na homologação em 30/10/2026 e em produção (integração do MARCEL
 - **Valores sem separador são lidos como centavos** (`"10"` = R$ 0,10). Por isso o SDK sempre envia `"10,00"`.
 - **Peso com vírgula é truncado** (`"1,6"` = 1 g). Por isso o SDK só aceita gramas inteiros.
 - **Só o primeiro volume da lista é processado**: os demais são descartados sem aviso. Por isso o SDK envia um volume por postagem.
-- **Etiqueta informada pode ser substituída**: acontece na homologação; em produção, ainda não foi confirmado (veja `etiquetaDivergente()`).
-- **Não há endpoint para testar as credenciais**: só `PostarObjeto` (veja [Testar as credenciais](#testar-as-credenciais)).
+- **Etiqueta informada pode ser substituída**: o ViPP só mantém a etiqueta com um perfil de importação criado para rastreamento (veja `etiquetaDivergente()`).
+- **O manual só descreve o `PostarObjeto`**, mas o servidor tem outros endpoints. Dois já foram usados: a [exclusão](#excluir-uma-postagem) e a consulta que serve para [testar as credenciais](#testar-as-credenciais).
+- **Os erros da exclusão vêm diferentes**: `{"Message": "[{...}]"}`, com a lista de erros em JSON dentro de uma string. O SDK já trata isso.
 - **HTTP 400** para erros de validação e **401** para credenciais ou perfil inválidos. O manual não deixa isso claro.
 - A homologação aceita dados que os Correios e a SEFAZ recusam depois, como emoji na descrição, item acima de R$ 100 mil e CPF inválido. A validação local do SDK bloqueia esses casos.
 

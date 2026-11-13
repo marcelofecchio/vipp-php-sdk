@@ -4,6 +4,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+### Adicionado
+
+- `VippClient::excluirPostagem(string $etiqueta, ?PerfilVipp $perfil = null)` e `ResultadoExclusao` (`DeleteConhecimento`, `DELETE` com `Usuario`, `Token` e `Etiqueta` em cabeçalhos). Só exclui objetos pré-postados aguardando liberação; etiqueta sem objeto elegível volta como resultado com `excluida() === false`. O caminho de sucesso não foi verificado em ambiente real (ver README).
+- `VippClientInterface::excluirPostagem()`, `VippFake::excluirPostagem()` / `responderExclusaoCom()` / `exclusoes()` / `resultadoExclusao()` e `Vipp::excluirPostagem()`.
+- `VippConfig::urlExcluirPostagem()` e `Support\Leitor::listaDeMessage()` (erros da exclusão vêm como `{"Message": "[{...}]"}`).
+- Fixtures capturadas da homologação para a exclusão (`homologacao-200-exclusao-nada-excluido`, `homologacao-401-exclusao-login`, `homologacao-401-exclusao-sem-credenciais`) e uma fixture inferida (`inferida-200-exclusao-ok`).
+- Coleção Postman: requisições 08 (exclusão sem objeto elegível) e 09 (exclusão com token errado), ambas seguras.
+
+### Alterado
+
+- **Quem implementa `VippClientInterface` por conta própria precisa adicionar `excluirPostagem()`.** O `VippFake` do pacote já tem.
+
+### Documentação
+
+- Respostas do suporte da VisualSet (13/11/2026): para enviar etiqueta já gerada é preciso um perfil de importação só para rastreamento; o contrato depende da configuração do perfil; `CodigoAdministrativo` não é exigido.
+- README: seção "Excluir uma postagem" e correção de "Testar as credenciais": existe `GetSituacaoPostagem`, que valida usuário e senha sem criar postagem (o SDK ainda não o expõe).
+
 ## [0.2.0] - 2026-11-11
 
 Correções a partir da integração do MARCELO ENVIOS com o ViPP de produção.
