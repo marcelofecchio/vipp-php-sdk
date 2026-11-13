@@ -56,6 +56,18 @@ final class Leitor
     }
 
     /**
+     * Flags `"S"`/`"N"` da consulta de situação.
+     *
+     * @param array<array-key, mixed> $dados
+     */
+    public static function simNao(array $dados, string $chave): ?bool
+    {
+        $valor = self::texto($dados, $chave);
+
+        return $valor === null ? null : strtoupper($valor) === 'S';
+    }
+
+    /**
      * @param array<array-key, mixed> $dados
      */
     public static function dinheiro(array $dados, string $chave): ?Dinheiro

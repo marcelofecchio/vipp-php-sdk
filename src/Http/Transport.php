@@ -62,14 +62,30 @@ final readonly class Transport
     }
 
     /**
+     * GET com parâmetros na query string. A consulta de situação exige a senha na URL, então a falha de rede NÃO
+     * encadeia a exceção original (a mensagem dela traz a URL com a senha) e mascara a URL na mensagem.
+     *
+     * @param array<string, string> $query
+     *
      * @throws TransporteException
      */
-    private function enviar(RequestInterface $request): RespostaHttp
+    public function get(string $url, array $query): RespostaHttp
+    {
+        $request = $this->requestFactory->createRequest('GET', $url.'?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986))
+            ->withHeader('Accept', 'application/json');
+
+        return $this->enviar($request, encadear: false);
+    }
+
+    /**
+     * @throws TransporteException
+     */
+    private function enviar(RequestInterface $request, bool $encadear = true): RespostaHttp
     {
         try {
             $response = $this->http->sendRequest($request);
         } catch (ClientExceptionInterface $e) {
-            throw new TransporteException('Falha de comunicação com o ViPP: '.$e->getMessage(), 0, $e);
+            throw new TransporteException('Falha de comunicação com o ViPP: '.Mascara::corpo($e->getMessage()), 0, $encadear ? $e : null);
         }
 
         $corpo = (string) $response->getBody();

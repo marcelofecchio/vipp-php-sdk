@@ -6,10 +6,14 @@ namespace MarceloFecchio\Vipp\Testing;
 
 use Closure;
 use MarceloFecchio\Vipp\Config\PerfilVipp;
+use MarceloFecchio\Vipp\Enum\BuscarPor;
 use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Postagem\Postagem;
+use MarceloFecchio\Vipp\Resultado\ErroVipp;
+use MarceloFecchio\Vipp\Resultado\ResultadoConexao;
 use MarceloFecchio\Vipp\Resultado\ResultadoExclusao;
 use MarceloFecchio\Vipp\Resultado\ResultadoPostagem;
+use MarceloFecchio\Vipp\Resultado\SituacaoPostagem;
 use MarceloFecchio\Vipp\Support\Normaliza;
 use MarceloFecchio\Vipp\Validation\Etiqueta;
 use MarceloFecchio\Vipp\Validation\ValidadorPostagem;
@@ -35,6 +39,15 @@ final class VippFake implements VippClientInterface
 
     /** @var list<ResultadoExclusao|Throwable> */
     private array $filaExclusao = [];
+
+    /** @var list<ResultadoConexao|Throwable> */
+    private array $filaConexao = [];
+
+    /** @var list<list<SituacaoPostagem>|Throwable> */
+    private array $filaSituacao = [];
+
+    /** @var list<string> */
+    private array $consultas = [];
 
     private int $sequencia = 0;
 
@@ -123,6 +136,97 @@ final class VippFake implements VippClientInterface
             'ArquivosExcluidos' => 0,
             'ObjetoEPPN' => 0,
         ], 200, $etiqueta);
+    }
+
+    /**
+     * Programa as próximas respostas de `verificarCredenciais()`. Sem programação, as credenciais são aceitas.
+     */
+    public function responderConexaoCom(ResultadoConexao|Throwable ...$respostas): self
+    {
+        array_push($this->filaConexao, ...$respostas);
+
+        return $this;
+    }
+
+    public function verificarCredenciais(?PerfilVipp $perfil = null): ResultadoConexao
+    {
+        $resposta = array_shift($this->filaConexao);
+
+        return match (true) {
+            $resposta instanceof Throwable => throw $resposta,
+            $resposta instanceof ResultadoConexao => $resposta,
+            default => new ResultadoConexao(true, [], 204),
+        };
+    }
+
+    /**
+     * Programa as próximas respostas de `situacaoPostagem()`: uma lista de `SituacaoPostagem` ou uma exceção.
+     * Sem programação, devolve lista vazia (nada encontrado).
+     *
+     * @param list<SituacaoPostagem>|Throwable ...$respostas
+     */
+    public function responderSituacaoCom(array|Throwable ...$respostas): self
+    {
+        array_push($this->filaSituacao, ...$respostas);
+
+        return $this;
+    }
+
+    public function situacaoPostagem(
+        string $valor,
+        BuscarPor $buscarPor = BuscarPor::Etiqueta,
+        bool $completo = false,
+        ?PerfilVipp $perfil = null,
+    ): array {
+        $valor = $buscarPor === BuscarPor::Etiqueta ? (string) Normaliza::codigo($valor) : trim($valor);
+
+        if ($valor === '') {
+            throw ValidacaoException::campo('ListaObjeto', 'informe a etiqueta ou a referência a consultar.');
+        }
+
+        if ($this->validar && $buscarPor === BuscarPor::Etiqueta && ($erro = Etiqueta::erro($valor)) !== null) {
+            throw ValidacaoException::campo('Etiqueta', $erro);
+        }
+
+        $this->consultas[] = $valor;
+
+        $resposta = array_shift($this->filaSituacao);
+
+        return $resposta instanceof Throwable ? throw $resposta : ($resposta ?? []);
+    }
+
+    /**
+     * Valores recebidos por `situacaoPostagem()`, em ordem.
+     *
+     * @return list<string>
+     */
+    public function consultas(): array
+    {
+        return $this->consultas;
+    }
+
+    public static function situacao(string $etiqueta = 'SQ000000005BR', ?string $referencia = null): SituacaoPostagem
+    {
+        return SituacaoPostagem::fromArray([
+            'Etiqueta' => $etiqueta,
+            'ObservacaoUm' => $referencia,
+            'DataDeEntradaNoVipp' => '2026-01-01T10:00:00',
+            'ValorDaPostagem' => 15.48,
+            'PrazoDeEntrega' => 3,
+            'PrazoDeEntregaEstaContando' => 'S',
+            'EntegaNoDomicilio' => 'S',
+            'EntegaAosSabados' => 'N',
+            'CodigoFinanceiroECT' => 3298,
+            'DescricaoFinanceiroECT' => '03298 - PAC',
+            'EtiquetaImpressa' => 'N',
+            'ARImpresso' => 'N',
+            'DeclaracaoDeConteudoImpressa' => 'N',
+        ]);
+    }
+
+    public static function conexaoRecusada(): ResultadoConexao
+    {
+        return new ResultadoConexao(false, [new ErroVipp(1030, 'Login', 'Usuário ou Senha Inválidos!', 2, 'Validacao')], 401);
     }
 
     public function validar(Postagem $postagem): array

@@ -1,0 +1,34 @@
+{
+    "SituacaoPostagem": [
+        {
+            "DataDeEntradaNoVipp": "2026-11-13T19:07:00",
+            "TipoDeEntrada": 4,
+            "ResultadoAfericaoAgencia": "Não Aferido",
+            "ValorDaPostagem": 10.27,
+            "PrazoDeEntrega": 1,
+            "PrazoDeEntregaEstaContando": "S",
+            "EntegaNoDomicilio": "N",
+            "EntegaAosSabados": "N",
+            "NomeFantasiaRemetente": "FILIAL 2  TESTE",
+            "IdUnidadePostadora": 74907352,
+            "NomeFantasiaUnidadePostadora": "AGF OZANAN",
+            "CidadeUnidadePostadora": "JUNDIAI",
+            "UfUnidadePostadora": "SP",
+            "NomeDestinatario": "Teste de WebService",
+            "CEPDestinatario": 1203001,
+            "CEPDestinatarioOriginal": -2147483648,
+            "CodigoFinanceiroECT": 4162,
+            "DescricaoFinanceiroECT": "04162 - SEDEX  (CONTRATO VAREJO)",
+            "DescricaoFinanceiroECTOriginal": "",
+            "Etiqueta": "SQ000370425BR",
+            "EtiquetaESigep": "N",
+            "EtiquetaImpressa": "N",
+            "ARImpresso": "N",
+            "DeclaracaoDeConteudoImpressa": "N",
+            "PesoReal": 300,
+            "PesoRealOriginal": -2147483648,
+            "ObservacaoUm": "SDK-DEL-E-220723",
+            "NomeDoUsuario": "onbi"
+        }
+    ]
+}

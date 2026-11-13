@@ -7,6 +7,7 @@ namespace MarceloFecchio\Vipp;
 use Http\Discovery\Psr17FactoryDiscovery;
 use MarceloFecchio\Vipp\Config\PerfilVipp;
 use MarceloFecchio\Vipp\Config\VippConfig;
+use MarceloFecchio\Vipp\Enum\BuscarPor;
 use MarceloFecchio\Vipp\Exceptions\AutenticacaoException;
 use MarceloFecchio\Vipp\Exceptions\HttpException;
 use MarceloFecchio\Vipp\Exceptions\RespostaInvalidaException;
@@ -17,8 +18,10 @@ use MarceloFecchio\Vipp\Http\RespostaHttp;
 use MarceloFecchio\Vipp\Http\Transport;
 use MarceloFecchio\Vipp\Postagem\Postagem;
 use MarceloFecchio\Vipp\Resultado\ErroVipp;
+use MarceloFecchio\Vipp\Resultado\ResultadoConexao;
 use MarceloFecchio\Vipp\Resultado\ResultadoExclusao;
 use MarceloFecchio\Vipp\Resultado\ResultadoPostagem;
+use MarceloFecchio\Vipp\Resultado\SituacaoPostagem;
 use MarceloFecchio\Vipp\Support\Leitor;
 use MarceloFecchio\Vipp\Support\Normaliza;
 use MarceloFecchio\Vipp\Validation\Etiqueta;
@@ -35,6 +38,9 @@ use Psr\Http\Message\StreamFactoryInterface;
  */
 final readonly class VippClient implements VippClientInterface
 {
+    /** Etiqueta que não existe: a consulta com ela não encontra nada e só confere usuário e senha. */
+    private const string ETIQUETA_SONDA = 'SQ000000005BR';
+
     private Transport $transport;
 
     public function __construct(
@@ -90,10 +96,7 @@ final readonly class VippClient implements VippClientInterface
         $corpo = Mascara::corpo($resposta->corpo);
 
         if ($resposta->status === 401) {
-            throw new AutenticacaoException(
-                array_map(ErroVipp::fromArray(...), Leitor::listaDeMessage($resposta->dados ?? [])),
-                $corpo,
-            );
+            throw new AutenticacaoException(self::errosDeAutenticacao($resposta->dados), $corpo);
         }
 
         if ($resposta->status >= 200 && $resposta->status < 300) {
@@ -105,6 +108,89 @@ final readonly class VippClient implements VippClientInterface
         }
 
         throw new HttpException($resposta->status, self::mensagemHttp($resposta->status), $corpo);
+    }
+
+    public function verificarCredenciais(?PerfilVipp $perfil = null): ResultadoConexao
+    {
+        $resposta = $this->consultarSituacao(self::ETIQUETA_SONDA, BuscarPor::Etiqueta, false, $perfil);
+
+        if ($resposta->status === 401) {
+            return new ResultadoConexao(false, self::errosDeAutenticacao($resposta->dados), 401);
+        }
+
+        if ($resposta->status >= 200 && $resposta->status < 300) {
+            return new ResultadoConexao(true, [], $resposta->status);
+        }
+
+        throw new HttpException($resposta->status, self::mensagemHttp($resposta->status), Mascara::corpo($resposta->corpo));
+    }
+
+    public function situacaoPostagem(
+        string $valor,
+        BuscarPor $buscarPor = BuscarPor::Etiqueta,
+        bool $completo = false,
+        ?PerfilVipp $perfil = null,
+    ): array {
+        $valor = $buscarPor === BuscarPor::Etiqueta ? (string) Normaliza::codigo($valor) : trim($valor);
+
+        if ($valor === '') {
+            throw ValidacaoException::campo('ListaObjeto', 'informe a etiqueta ou a referência a consultar.');
+        }
+
+        if ($buscarPor === BuscarPor::Etiqueta && $this->config->validarAntesDeEnviar && ($erro = Etiqueta::erro($valor)) !== null) {
+            throw ValidacaoException::campo('Etiqueta', $erro);
+        }
+
+        $resposta = $this->consultarSituacao($valor, $buscarPor, $completo, $perfil);
+        $corpo = Mascara::corpo($resposta->corpo);
+
+        if ($resposta->status === 401) {
+            throw new AutenticacaoException(self::errosDeAutenticacao($resposta->dados), $corpo);
+        }
+
+        // 204: nenhum objeto encontrado (inclusive etiqueta inexistente).
+        if ($resposta->status === 204) {
+            return [];
+        }
+
+        if ($resposta->status >= 200 && $resposta->status < 300) {
+            if ($resposta->dados === null || !array_key_exists('SituacaoPostagem', $resposta->dados)) {
+                throw new RespostaInvalidaException("Resposta do ViPP sem SituacaoPostagem (HTTP {$resposta->status}).", $resposta->status, $corpo);
+            }
+
+            return array_map(SituacaoPostagem::fromArray(...), Leitor::lista($resposta->dados, 'SituacaoPostagem'));
+        }
+
+        throw new HttpException($resposta->status, self::mensagemHttp($resposta->status), $corpo);
+    }
+
+    private function consultarSituacao(string $valor, BuscarPor $buscarPor, bool $completo, ?PerfilVipp $perfil): RespostaHttp
+    {
+        $perfil ??= $this->config->perfil;
+
+        // O endpoint só recebe usuário e senha (o token do PerfilVipp) e não recebe o IdPerfil.
+        return $this->transport->get($this->config->urlSituacaoPostagem(), [
+            'Usuario' => $perfil->usuario,
+            'Senha' => $perfil->token,
+            'StDadosCompletos' => $completo ? '1' : '0',
+            'BuscarPor' => $buscarPor->value,
+            'ListaObjeto' => $valor,
+        ]);
+    }
+
+    /**
+     * Os erros do 401 vêm em `ListaErros` (PostarObjeto, GetSituacaoPostagem) ou em `{"Message": "[...]"}` (DeleteConhecimento).
+     *
+     * @param array<array-key, mixed>|null $dados
+     *
+     * @return list<ErroVipp>
+     */
+    private static function errosDeAutenticacao(?array $dados): array
+    {
+        $dados ??= [];
+        $erros = Leitor::lista($dados, 'ListaErros');
+
+        return array_map(ErroVipp::fromArray(...), $erros === [] ? Leitor::listaDeMessage($dados) : $erros);
     }
 
     public function validar(Postagem $postagem): array
@@ -119,10 +205,7 @@ final readonly class VippClient implements VippClientInterface
         $corpo = Mascara::corpo($resposta->corpo);
 
         if ($status === 401) {
-            throw new AutenticacaoException(
-                array_map(ErroVipp::fromArray(...), Leitor::lista($dados ?? [], 'ListaErros')),
-                $corpo,
-            );
+            throw new AutenticacaoException(self::errosDeAutenticacao($dados), $corpo);
         }
 
         // 200/201: postagem processada; 400 com ListaErros: postagem recusada na validação do ViPP.
