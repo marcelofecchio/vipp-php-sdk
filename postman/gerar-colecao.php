@@ -86,6 +86,74 @@ $requisicao = static function (string $nome, string $descricao, array $payload, 
 };
 
 /**
+ * DELETE sem corpo: usuário, token e etiqueta em cabeçalhos.
+ *
+ * @param list<string> $testes
+ *
+ * @return array<string, mixed>
+ */
+$requisicaoExclusao = static function (string $nome, string $descricao, string $token, array $testes): array {
+    return [
+        'name' => $nome,
+        'event' => [[
+            'listen' => 'test',
+            'script' => ['type' => 'text/javascript', 'exec' => $testes],
+        ]],
+        'request' => [
+            'method' => 'DELETE',
+            'description' => $descricao,
+            'header' => [
+                ['key' => 'Usuario', 'value' => '{{usuario}}'],
+                ['key' => 'Token', 'value' => $token],
+                // Etiqueta inexistente: a requisição nunca exclui nada.
+                ['key' => 'Etiqueta', 'value' => 'SQ000000005BR'],
+            ],
+            'url' => [
+                'raw' => '{{baseUrl}}'.VippConfig::CAMINHO_EXCLUIR_POSTAGEM,
+                'host' => ['{{baseUrl}}'],
+                'path' => explode('/', trim(VippConfig::CAMINHO_EXCLUIR_POSTAGEM, '/')),
+            ],
+        ],
+    ];
+};
+
+/**
+ * GET somente leitura: usuário e senha (o token) vão na query string.
+ *
+ * @param list<string> $testes
+ *
+ * @return array<string, mixed>
+ */
+$requisicaoSituacao = static function (string $nome, string $descricao, string $senha, string $objeto, array $testes): array {
+    $parametros = [
+        'Usuario' => '{{usuario}}',
+        'Senha' => $senha,
+        'StDadosCompletos' => '0',
+        'BuscarPor' => 'EtiquetaPostagem',
+        'ListaObjeto' => $objeto,
+    ];
+
+    return [
+        'name' => $nome,
+        'event' => [[
+            'listen' => 'test',
+            'script' => ['type' => 'text/javascript', 'exec' => $testes],
+        ]],
+        'request' => [
+            'method' => 'GET',
+            'description' => $descricao,
+            'header' => [],
+            'url' => [
+                'raw' => '{{baseUrl}}'.VippConfig::CAMINHO_SITUACAO_POSTAGEM.'?'.http_build_query($parametros, '', '&', PHP_QUERY_RFC3986),
+                'host' => ['{{baseUrl}}'],
+                'path' => explode('/', trim(VippConfig::CAMINHO_SITUACAO_POSTAGEM, '/')),
+                'query' => array_map(static fn(string $k, string $v): array => ['key' => $k, 'value' => $v], array_keys($parametros), $parametros),
+            ],
+        ],
+    ];
+};
+
+/**
  * @return list<string>
  */
 $testesErro = static fn(int $status, int $codigo): array => [
@@ -174,6 +242,47 @@ $colecao = [
             'Observado na homologação: enviar NrCartao sem NrContrato dá o erro 1100 ("O Número do Cartão É Obrigatóriamente Numérico!"), mesmo com o cartão numérico.',
             ['PerfilVipp' => $perfil] + $cartaoSemContrato,
             $testesErro(400, 1100),
+        ),
+        $requisicaoExclusao(
+            '08 Excluir etiqueta sem objeto elegível (200, nada excluído)',
+            'DeleteConhecimento (não consta no manual). Só exclui objetos pré-postados aguardando liberação; etiqueta inexistente ou em outro status volta 200 com tudo zerado. Esta requisição usa uma etiqueta inexistente e nunca exclui nada.',
+            '{{token}}',
+            [
+                "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                'const corpo = pm.response.json();',
+                "pm.test('Nada excluído', () => { pm.expect(corpo.TotalConhecimentos).to.eql(0); pm.expect(corpo.ConhecimentosExcluidos).to.eql(0); });",
+            ],
+        ),
+        $requisicaoExclusao(
+            '09 Excluir com token errado (401 / 1030)',
+            'O erro vem como {"Message": "[{...}]"}: a lista de erros é um JSON dentro de uma string. No SDK vira AutenticacaoException.',
+            'token-invalido',
+            [
+                "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                'const erros = JSON.parse(pm.response.json().Message);',
+                "pm.test('Erro 1030', () => pm.expect(erros.map(e => e.CodigoErro)).to.include(1030));",
+            ],
+        ),
+        $requisicaoSituacao(
+            '10 Situação da postagem criada na 01 (200)',
+            'GetSituacaoPostagem (não consta no manual), somente leitura. Consulta pela etiqueta que a requisição 01 guardou em {{ultimaEtiqueta}}. Rode depois da 01.',
+            '{{token}}',
+            '{{ultimaEtiqueta}}',
+            [
+                "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                'const lista = pm.response.json().SituacaoPostagem;',
+                "pm.test('Devolve a postagem da 01', () => pm.expect(lista[0].Etiqueta).to.eql(pm.collectionVariables.get('ultimaEtiqueta')));",
+            ],
+        ),
+        $requisicaoSituacao(
+            '11 Credenciais inválidas (401 / 1030)',
+            'Senha errada: HTTP 401 com ListaErros. No SDK, verificarCredenciais() devolve autenticado = false.',
+            'senha-invalida',
+            'SQ000000005BR',
+            [
+                "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                "pm.test('ListaErros contém o erro 1030', () => pm.expect(pm.response.json().ListaErros.map(e => e.CodigoErro)).to.include(1030));",
+            ],
         ),
     ],
     'variable' => [

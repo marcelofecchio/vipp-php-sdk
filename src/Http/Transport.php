@@ -9,6 +9,7 @@ use MarceloFecchio\Vipp\Exceptions\TransporteException;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
 /**
@@ -40,10 +41,51 @@ final readonly class Transport
             ->withHeader('Accept-Encoding', 'UTF-8')
             ->withBody($this->streamFactory->createStream($json));
 
+        return $this->enviar($request);
+    }
+
+    /**
+     * DELETE sem corpo: o DeleteConhecimento recebe usuário, token e etiqueta em cabeçalhos.
+     *
+     * @param array<string, string> $cabecalhos
+     *
+     * @throws TransporteException
+     */
+    public function delete(string $url, array $cabecalhos): RespostaHttp
+    {
+        $request = $this->requestFactory->createRequest('DELETE', $url)->withHeader('Accept', 'application/json');
+        foreach ($cabecalhos as $nome => $valor) {
+            $request = $request->withHeader($nome, $valor);
+        }
+
+        return $this->enviar($request);
+    }
+
+    /**
+     * GET com parâmetros na query string. A consulta de situação exige a senha na URL, então a falha de rede NÃO
+     * encadeia a exceção original (a mensagem dela traz a URL com a senha) e mascara a URL na mensagem.
+     *
+     * @param array<string, string> $query
+     *
+     * @throws TransporteException
+     */
+    public function get(string $url, array $query): RespostaHttp
+    {
+        $request = $this->requestFactory->createRequest('GET', $url.'?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986))
+            ->withHeader('Accept', 'application/json');
+
+        return $this->enviar($request, encadear: false);
+    }
+
+    /**
+     * @throws TransporteException
+     */
+    private function enviar(RequestInterface $request, bool $encadear = true): RespostaHttp
+    {
         try {
             $response = $this->http->sendRequest($request);
         } catch (ClientExceptionInterface $e) {
-            throw new TransporteException('Falha de comunicação com o ViPP: '.$e->getMessage(), 0, $e);
+            throw new TransporteException('Falha de comunicação com o ViPP: '.Mascara::corpo($e->getMessage()), 0, $encadear ? $e : null);
         }
 
         $corpo = (string) $response->getBody();

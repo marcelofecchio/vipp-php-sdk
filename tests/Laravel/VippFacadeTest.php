@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MarceloFecchio\Vipp\Enum\BuscarPor;
 use MarceloFecchio\Vipp\Laravel\Facades\Vipp;
 use MarceloFecchio\Vipp\Postagem\Postagem;
 use MarceloFecchio\Vipp\Resultado\ResultadoPostagem;
@@ -52,4 +53,19 @@ it('Vipp::fake() aceita exigirContrato', function (): void {
     Vipp::fake(exigirContrato: true);
 
     expect(Vipp::validar(postagemExemplo()))->toHaveCount(2);
+});
+
+it('Vipp::excluirPostagem() usa o fake', function (): void {
+    $fake = Vipp::fake();
+
+    expect(Vipp::excluirPostagem('SQ000352886BR')->excluida())->toBeTrue()
+        ->and($fake->exclusoes())->toBe(['SQ000352886BR']);
+});
+
+it('Vipp::verificarCredenciais() e Vipp::situacaoPostagem() usam o fake', function (): void {
+    $fake = Vipp::fake()->responderSituacaoCom([VippFake::situacao('SQ000352886BR', 'ME-9')]);
+
+    expect(Vipp::verificarCredenciais()->autenticado)->toBeTrue()
+        ->and(Vipp::situacaoPostagem('ME-9', BuscarPor::Referencia)[0]->etiqueta)->toBe('SQ000352886BR')
+        ->and($fake->consultas())->toBe(['ME-9']);
 });

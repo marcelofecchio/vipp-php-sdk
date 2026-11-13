@@ -56,6 +56,18 @@ final class Leitor
     }
 
     /**
+     * Flags `"S"`/`"N"` da consulta de situação.
+     *
+     * @param array<array-key, mixed> $dados
+     */
+    public static function simNao(array $dados, string $chave): ?bool
+    {
+        $valor = self::texto($dados, $chave);
+
+        return $valor === null ? null : strtoupper($valor) === 'S';
+    }
+
+    /**
      * @param array<array-key, mixed> $dados
      */
     public static function dinheiro(array $dados, string $chave): ?Dinheiro
@@ -82,6 +94,25 @@ final class Leitor
         $valor = $dados[$chave] ?? null;
 
         return is_array($valor) ? $valor : [];
+    }
+
+    /**
+     * Erros do `DeleteConhecimento`: vêm como `{"Message": "[{...}]"}`, com a lista de erros em JSON dentro de uma string.
+     *
+     * @param array<array-key, mixed> $dados
+     *
+     * @return list<array<array-key, mixed>>
+     */
+    public static function listaDeMessage(array $dados): array
+    {
+        $mensagem = $dados['Message'] ?? null;
+        if (!is_string($mensagem)) {
+            return [];
+        }
+
+        $lista = json_decode($mensagem, true);
+
+        return is_array($lista) ? array_values(array_filter($lista, is_array(...))) : [];
     }
 
     /**

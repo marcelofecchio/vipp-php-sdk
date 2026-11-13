@@ -375,6 +375,207 @@
                     ]
                 }
             }
+        },
+        {
+            "name": "08 Excluir etiqueta sem objeto elegível (200, nada excluído)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('Nada excluído', () => { pm.expect(corpo.TotalConhecimentos).to.eql(0); pm.expect(corpo.ConhecimentosExcluidos).to.eql(0); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "description": "DeleteConhecimento (não consta no manual). Só exclui objetos pré-postados aguardando liberação; etiqueta inexistente ou em outro status volta 200 com tudo zerado. Esta requisição usa uma etiqueta inexistente e nunca exclui nada.",
+                "header": [
+                    {
+                        "key": "Usuario",
+                        "value": "{{usuario}}"
+                    },
+                    {
+                        "key": "Token",
+                        "value": "{{token}}"
+                    },
+                    {
+                        "key": "Etiqueta",
+                        "value": "SQ000000005BR"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/conhecimento/DeleteConhecimento",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "conhecimento",
+                        "DeleteConhecimento"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "09 Excluir com token errado (401 / 1030)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                            "const erros = JSON.parse(pm.response.json().Message);",
+                            "pm.test('Erro 1030', () => pm.expect(erros.map(e => e.CodigoErro)).to.include(1030));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "description": "O erro vem como {\"Message\": \"[{...}]\"}: a lista de erros é um JSON dentro de uma string. No SDK vira AutenticacaoException.",
+                "header": [
+                    {
+                        "key": "Usuario",
+                        "value": "{{usuario}}"
+                    },
+                    {
+                        "key": "Token",
+                        "value": "token-invalido"
+                    },
+                    {
+                        "key": "Etiqueta",
+                        "value": "SQ000000005BR"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/conhecimento/DeleteConhecimento",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "conhecimento",
+                        "DeleteConhecimento"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "10 Situação da postagem criada na 01 (200)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const lista = pm.response.json().SituacaoPostagem;",
+                            "pm.test('Devolve a postagem da 01', () => pm.expect(lista[0].Etiqueta).to.eql(pm.collectionVariables.get('ultimaEtiqueta')));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "description": "GetSituacaoPostagem (não consta no manual), somente leitura. Consulta pela etiqueta que a requisição 01 guardou em {{ultimaEtiqueta}}. Rode depois da 01.",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/conhecimento/GetSituacaoPostagem?Usuario=%7B%7Busuario%7D%7D&Senha=%7B%7Btoken%7D%7D&StDadosCompletos=0&BuscarPor=EtiquetaPostagem&ListaObjeto=%7B%7BultimaEtiqueta%7D%7D",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "conhecimento",
+                        "GetSituacaoPostagem"
+                    ],
+                    "query": [
+                        {
+                            "key": "Usuario",
+                            "value": "{{usuario}}"
+                        },
+                        {
+                            "key": "Senha",
+                            "value": "{{token}}"
+                        },
+                        {
+                            "key": "StDadosCompletos",
+                            "value": "0"
+                        },
+                        {
+                            "key": "BuscarPor",
+                            "value": "EtiquetaPostagem"
+                        },
+                        {
+                            "key": "ListaObjeto",
+                            "value": "{{ultimaEtiqueta}}"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "11 Credenciais inválidas (401 / 1030)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                            "pm.test('ListaErros contém o erro 1030', () => pm.expect(pm.response.json().ListaErros.map(e => e.CodigoErro)).to.include(1030));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "description": "Senha errada: HTTP 401 com ListaErros. No SDK, verificarCredenciais() devolve autenticado = false.",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/conhecimento/GetSituacaoPostagem?Usuario=%7B%7Busuario%7D%7D&Senha=senha-invalida&StDadosCompletos=0&BuscarPor=EtiquetaPostagem&ListaObjeto=SQ000000005BR",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "conhecimento",
+                        "GetSituacaoPostagem"
+                    ],
+                    "query": [
+                        {
+                            "key": "Usuario",
+                            "value": "{{usuario}}"
+                        },
+                        {
+                            "key": "Senha",
+                            "value": "senha-invalida"
+                        },
+                        {
+                            "key": "StDadosCompletos",
+                            "value": "0"
+                        },
+                        {
+                            "key": "BuscarPor",
+                            "value": "EtiquetaPostagem"
+                        },
+                        {
+                            "key": "ListaObjeto",
+                            "value": "SQ000000005BR"
+                        }
+                    ]
+                }
+            }
         }
     ],
     "variable": [

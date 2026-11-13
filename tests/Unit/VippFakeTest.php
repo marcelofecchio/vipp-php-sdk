@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MarceloFecchio\Vipp\Enum\BuscarPor;
 use MarceloFecchio\Vipp\Exceptions\HttpException;
 use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Postagem\Destinatario;
@@ -60,4 +61,48 @@ it('permite desligar a validação no fake', function (): void {
 
 it('aplica exigirContrato no fake', function (): void {
     expect(fn() => new VippFake(exigirContrato: true)->postarObjeto(postagemExemplo()))->toThrow(ValidacaoException::class, 'ContratoEct.NrCartao');
+});
+
+it('registra e responde exclusões no fake', function (): void {
+    $fake = new VippFake()->responderExclusaoCom(
+        VippFake::resultadoExclusao('SQ000000005BR', excluida: false),
+        new HttpException(429, 'limite'),
+    );
+
+    expect($fake->excluirPostagem('sq000352886br')->excluida())->toBeFalse()
+        ->and(fn() => $fake->excluirPostagem('SQ000352886BR'))->toThrow(HttpException::class)
+        ->and($fake->excluirPostagem('SQ000352886BR')->excluida())->toBeTrue()
+        ->and($fake->exclusoes())->toBe(['SQ000352886BR', 'SQ000352886BR', 'SQ000352886BR']);
+});
+
+it('valida a etiqueta na exclusão do fake', function (): void {
+    new VippFake()->excluirPostagem('SQ123456786BR');
+})->throws(ValidacaoException::class);
+
+it('programa e registra consultas de situação no fake', function (): void {
+    $fake = new VippFake()->responderSituacaoCom(
+        [VippFake::situacao('SQ000352886BR', 'ME-1')],
+        new HttpException(429, 'limite'),
+    );
+
+    $lista = $fake->situacaoPostagem('ME-1', BuscarPor::Referencia);
+
+    expect($lista)->toHaveCount(1)
+        ->and($lista[0]->referencia)->toBe('ME-1')
+        ->and($lista[0]->valorPostagem?->centavos)->toBe(1548)
+        ->and(fn() => $fake->situacaoPostagem('SQ000352886BR'))->toThrow(HttpException::class)
+        ->and($fake->situacaoPostagem('SQ000352886BR'))->toBe([])
+        ->and($fake->consultas())->toBe(['ME-1', 'SQ000352886BR', 'SQ000352886BR']);
+});
+
+it('valida a consulta de situação no fake', function (): void {
+    expect(fn() => new VippFake()->situacaoPostagem('SQ123456786BR'))->toThrow(ValidacaoException::class)
+        ->and(fn() => new VippFake()->situacaoPostagem(' ', BuscarPor::Referencia))->toThrow(ValidacaoException::class);
+});
+
+it('programa a verificação de credenciais no fake', function (): void {
+    $fake = new VippFake()->responderConexaoCom(VippFake::conexaoRecusada());
+
+    expect($fake->verificarCredenciais()->autenticado)->toBeFalse()
+        ->and($fake->verificarCredenciais()->autenticado)->toBeTrue();
 });

@@ -2,11 +2,47 @@
 
 ## Estado atual
 
-**v0.2.0 lançada em 11/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook). Todos os requisitos de `docs/PROMPT-INICIAL.md` e o backlog do relatório do `marcelo-envios` estão implementados (exceto `verificarCredenciais()`, que depende da VisualSet). `composer qa` passa, com 139 testes unitários/Laravel. A integração (2 de 2) e a coleção Postman (7 requisições, 23 de 23 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
+**v0.3.0 lançada em 13/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook): `excluirPostagem()`, `situacaoPostagem()` e `verificarCredenciais()` (ver histórico de 13/11/2026). `composer qa` passa, com 174 testes unitários/Laravel. A integração (8 de 8) e a coleção Postman (11 requisições, 31 de 31 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
 
-**Próximo passo recomendado:** no `marcelo-envios`, atualizar para `^0.2`, ligar `exigirContrato`, trocar a limpeza manual da descrição por `ItemConteudo::limparDescricao()` e usar `exigeContrato()` na mensagem ao ADM. Em paralelo, confirmar com a agência se o perfil de produção manteve a etiqueta enviada.
+**Exclusão com sucesso ainda não verificada.** O usuário decidiu **não enviar** o segundo e-mail ao suporte (13/11/2026) e vai testar a exclusão de um envio **em produção**, pelo `marcelo-envios`. Quando houver o resultado, registrar aqui `$resultado->resposta` e o status do objeto antes da exclusão, e trocar a fixture `inferida-200-exclusao-ok.json` por uma captura real (sem dados pessoais).
+
+**Próximo passo recomendado:** (1) registrar o resultado do teste de exclusão em produção; (2) com a AGF, criar um **perfil de importação só para rastreamento** e usá-lo no `marcelo-envios`: sem ele o ViPP troca a etiqueta enviada; (3) no `marcelo-envios`, atualizar para `^0.3`, ligar `exigirContrato`, usar `ItemConteudo::limparDescricao()`, `exigeContrato()`, `verificarCredenciais()` no "Testar conexão" e `situacaoPostagem(…, BuscarPor::Referencia)` antes de reenviar uma exportação sem resposta.
 
 ## Histórico
+
+### 13/11/2026 — resposta do suporte da VisualSet e `excluirPostagem()`
+
+Perguntas enviadas ao suporte (exclusão e dúvidas da produção); respostas e o que foi feito:
+
+| # | Pergunta | Resposta do suporte | Verificado |
+|---|---|---|---|
+| 1, 4 | `DeleteConhecimento` é liberado para integrações? Regras? | Exclui qualquer objeto **pré-postado com status aguardando liberação** | Parcial: o perfil 9363 cria objetos já postados, então o sucesso não é reproduzível |
+| 2, 3 | Parâmetros e autenticação | **Cabeçalhos** `Usuario`, `Token` e `Etiqueta` (sem `IdPerfil`); método não informado | Sim: `DELETE` funciona. `POST` também respondeu 200. Com `Senha` em vez de `Token`, dá 401 (erro 1010). Em query string ou corpo JSON, dá 401 (erro 1000) |
+| 5 | Libera a etiqueta? | **Não** libera: é preciso refazer | Não testável |
+| 6 | Formato da resposta | "IDconhecimento 0 erro, 1 sucesso" | **Não confere**: a resposta real é `{TotalConhecimentos, ConhecimentosExcluidos, ArquivosExcluidos, ObjetoEPPN}` |
+| 7 | Alternativa (`BloquearDownloadConhecimento`) | Resposta contraditória ("não existe", mas "pode ser usado para objetos criados por integração") | O WSDL SOAP lista `BloquearDownloadConhecimento`, `LiberarDownloadConhecimento` e `BloquearObjetoCorreios`; **não implementados** (SOAP fora do escopo) |
+| 8 | Perfil de produção mantém a etiqueta? | Para enviar objeto com etiqueta gerada, é preciso **um perfil de importação apenas para rastreamento** | Não testável (sem esse perfil na homologação) |
+| 9 | Cartão sem zeros? `CodigoAdministrativo`? | "Não exige" (só `CodigoAdministrativo`; os zeros ficaram sem resposta) | Parcial |
+| 10 | Contrato obrigatório (erro 91)? | Depende do perfil: "ViPP importar" dispensa; "respeitar a chamada" exige | Sim, coerente com o observado |
+| 11 | Há endpoint para validar credenciais? | "Não existe" | **Desmentido** (ver abaixo) |
+
+Achados da sondagem (homologação, só com postagens de teste criadas por mim):
+- A documentação interativa do servidor (`/swagger/docs/v4`) lista 63 endpoints, bem mais que o manual. Há `DeleteConhecimento` (POST e DELETE, sem parâmetros documentados).
+- **`GET /api/v1/conhecimento/GetSituacaoPostagem` valida credenciais sem criar postagem** (401/1030 com senha errada; 204 com senha certa e etiqueta inexistente). Parâmetros: `Usuario`, `Senha`, `StDadosCompletos` (`0` resumo, `1` completo), `BuscarPor` (`EtiquetaPostagem`, `ObservacaoUm`, `ObservacaoDois`), `ListaObjeto` (uma etiqueta; vírgula, `;`, `|` e espaço não funcionaram para duas). Também devolve a situação completa da postagem. Os itens `verificarCredenciais()` e `situacaoPostagem()` ficam no backlog.
+- `DeleteConhecimento` com etiqueta inexistente ou **sem objeto elegível** responde **200 com tudo zerado**, e não erro. Os objetos criados pelo `PostarObjeto` na homologação continuaram existindo depois do `DELETE` (conferido por `GetSituacaoPostagem`).
+- Um `DELETE` com outro nome de cabeçalho para a etiqueta (`EtiquetaPostagem`, `NrEtiquetaPostagem`) deu 400 com erro de SQL vazando o nome da rotina (`ConhecimentoListarParaExcluirPPN`, parâmetro `@ValorDaBusca`). Ou seja, o cabeçalho correto é `Etiqueta`.
+- Os erros 401 da exclusão têm outro formato: `{"Message": "[{...}]"}` (JSON dentro de string).
+
+**Segunda parte (mesma branch): `situacaoPostagem()` e `verificarCredenciais()`** sobre `GetSituacaoPostagem`:
+- `situacaoPostagem(valor, BuscarPor, completo, perfil)` devolve `list<SituacaoPostagem>` (vazia no 204). `BuscarPor`: `Etiqueta` (`EtiquetaPostagem`), `Referencia` (`ObservacaoUm`, que é o `CodigoBarraVolume` enviado) e `ReferenciaDois` (listado pela API, não exercitado). Um valor por chamada.
+- Conferido: `ObservacaoUm` localiza a postagem pela referência enviada. Isso resolve a recuperação de exportação sem resposta (timeout) do `marcelo-envios`: consultar por `ME-{id}` antes de reenviar. Há teste de integração criando uma postagem e encontrando-a pela referência.
+- `verificarCredenciais()` consulta uma etiqueta inexistente (`SQ000000005BR`) e devolve `ResultadoConexao` (401 não vira exceção). **Não confere o `IdPerfil`** (o endpoint não o recebe).
+- **Senha na URL**: `Mascara` passou a mascarar `Senha=`/`Token=` e `Transport::get()` mascara a mensagem de falha de rede e **não encadeia** a exceção original, que traria a URL com a senha.
+- **204 malformado**: o servidor responde `204 No Content` com `Content-Length: 163` e sem corpo. cURL/Guzzle toleram; o Postman falha (`Parse Error`), então a coleção não tem a requisição "204". Clientes PSR-18 estritos podem falhar (virariam `TransporteException`).
+- Fixtures capturadas e **sanitizadas** (e-mail de uma pessoa e CPF do remetente de teste trocados por valores fictícios).
+- Postman: 10 (situação da postagem criada na 01) e 11 (401/1030).
+
+Feito no SDK (branch `feat/excluir-postagem`): `excluirPostagem()` + `ResultadoExclusao` (`excluida()` = `ConhecimentosExcluidos > 0`), `VippFake`/`Vipp::fake()`, fixtures (3 capturadas e 1 inferida), testes unitários e de integração (só com etiqueta inexistente), Postman 08 e 09, README/CHANGELOG/CLAUDE.md. **Limitação conhecida:** o caminho de sucesso real não foi exercitado, e a regra "excluída = `ConhecimentosExcluidos > 0`" é uma inferência.
 
 ### 11/11/2026 — v0.2.0 (backlog do relatório do `marcelo-envios`)
 
@@ -94,7 +130,9 @@ Também confirmado: a produção usa a mesma URL padrão (`https://vpsrv.visuals
 - [x] Erro 91 sem descrição com mensagem clara + `exigeContrato()` (v0.2.0).
 - [x] Fixture `producao-400-contrato-91.json` e testes (v0.2.0).
 - [x] `ItemConteudo::limparDescricao()` (v0.2.0).
-- [ ] `verificarCredenciais()`: só se a VisualSet indicar um endpoint que não crie postagem.
+- [x] `verificarCredenciais()` e `situacaoPostagem()` sobre `GetSituacaoPostagem` (13/11/2026, branch `feat/excluir-postagem`).
+- [ ] Consulta de situação com **mais de um valor** por chamada (o formato de `ListaObjeto` com vários valores é desconhecido; ver a pergunta ao suporte) e rastreamento (`ListarRastreioObjeto`).
+- [x] `excluirPostagem()` sobre `DeleteConhecimento` (13/11/2026, branch `feat/excluir-postagem`).
 
 ## Decisões
 
@@ -112,9 +150,12 @@ Também confirmado: a produção usa a mesma URL padrão (`https://vpsrv.visuals
 
 ## Pontos em aberto
 
-- [ ] **TODO(confirmar)** com a AGF/VisualSet: o perfil de **produção** mantém a etiqueta enviada (Nota 16) ou também gera outra? Basta conferir se a primeira postagem aceita do `marcelo-envios` voltou com a mesma etiqueta (`etiquetaDivergente()` falso).
-- [ ] **TODO(confirmar)**: o cartão é aceito sem os zeros à esquerda? Algum perfil exige `CodigoAdministrativo`?
-- [ ] **TODO(confirmar)** com a VisualSet: existe endpoint de consulta ou de login que não crie postagem?
+- [x] Perfil de produção e etiqueta enviada: o suporte disse que é preciso um **perfil de importação só para rastreamento** (13/11/2026). **Pendente:** a AGF criar esse perfil e o `marcelo-envios` usá-lo; confirmar com `etiquetaDivergente()` falso na primeira postagem.
+- [x] `CodigoAdministrativo` não é exigido (suporte, 13/11/2026). **Sem resposta:** se o cartão é aceito sem os zeros à esquerda.
+- [x] ~~Endpoint de consulta/login~~: o suporte disse que não existe, mas `GetSituacaoPostagem` existe (13/11/2026); ver Backlog.
+- [ ] **TODO(confirmar)**: formato real da resposta de **sucesso** da exclusão (o suporte falou em "IDconhecimento 0/1", e o servidor devolve contagens). Será verificado pelo teste do usuário em produção (13/11/2026). O segundo e-mail ao suporte foi preparado, mas o usuário decidiu não enviar; as perguntas dele continuam como `TODO(confirmar)` nesta lista.
+- [ ] **TODO(confirmar)**: formato de `ListaObjeto` com várias etiquetas no `GetSituacaoPostagem`; valores de `BuscarPor` (`ObservacaoDois`); e se o `204` com `Content-Length: 163` sem corpo é intencional.
+- [ ] **TODO(confirmar)**: significado de `ObjetoEPPN` na resposta da exclusão, e de `BloquearDownloadConhecimento`/`BloquearObjetoCorreios` (resposta contraditória do suporte).
 - [x] O servidor de produção é o mesmo `vpsrv.visualset.com.br`, só com outras credenciais (11/11/2026, pela integração do `marcelo-envios`).
 - [ ] Conjunto exato de caracteres aceitos pela SEFAZ na descrição da DC-e.
 - [ ] Eventos Laravel (postagem enviada, válida ou inválida)? Decidir com o usuário.
