@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [0.3.0] - 2026-11-13
+
+Exclusão, consulta de situação e teste de credenciais, sobre endpoints que não constam no manual do ViPP.
+
 ### Adicionado
 
 - `VippClient::excluirPostagem(string $etiqueta, ?PerfilVipp $perfil = null)` e `ResultadoExclusao` (`DeleteConhecimento`, `DELETE` com `Usuario`, `Token` e `Etiqueta` em cabeçalhos). Só exclui objetos pré-postados aguardando liberação; etiqueta sem objeto elegível volta como resultado com `excluida() === false`. O caminho de sucesso não foi verificado em ambiente real (ver README).
@@ -66,6 +70,7 @@ Primeira versão pública.
 - Integração Laravel 12/13: `VippServiceProvider`, `config/vipp.php` e Facade `Vipp` com `fake()`.
 - Coleção e ambiente Postman gerados a partir dos DTOs.
 
-[Não lançado]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.2.0...HEAD
+[Não lançado]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/marcelofecchio/vipp-php-sdk/releases/tag/v0.1.0

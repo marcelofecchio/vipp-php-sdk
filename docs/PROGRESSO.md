@@ -2,11 +2,11 @@
 
 ## Estado atual
 
-**v0.2.0 lançada em 11/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook). Todos os requisitos de `docs/PROMPT-INICIAL.md` e o backlog do relatório do `marcelo-envios` estão implementados (exceto `verificarCredenciais()`, que depende da VisualSet). `composer qa` passa, com 139 testes unitários/Laravel. A integração (2 de 2) e a coleção Postman (7 requisições, 23 de 23 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
+**v0.3.0 lançada em 13/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook): `excluirPostagem()`, `situacaoPostagem()` e `verificarCredenciais()` (ver histórico de 13/11/2026). `composer qa` passa, com 174 testes unitários/Laravel. A integração (8 de 8) e a coleção Postman (11 requisições, 31 de 31 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
 
-**Em desenvolvimento (branch `feat/excluir-postagem`, **sem PR, a pedido do usuário**):** `excluirPostagem()`, `situacaoPostagem()` e `verificarCredenciais()` (ver histórico de 13/11/2026). `composer qa` com 174 testes; integração 8 de 8; Postman 11 requisições, 31 de 31 asserções.
+**Exclusão com sucesso ainda não verificada.** O usuário decidiu **não enviar** o segundo e-mail ao suporte (13/11/2026) e vai testar a exclusão de um envio **em produção**, pelo `marcelo-envios`. Quando houver o resultado, registrar aqui `$resultado->resposta` e o status do objeto antes da exclusão, e trocar a fixture `inferida-200-exclusao-ok.json` por uma captura real (sem dados pessoais).
 
-**Próximo passo recomendado:** (1) com a AGF, criar um **perfil de importação só para rastreamento** e usá-lo no `marcelo-envios`: sem ele o ViPP troca a etiqueta enviada; (2) obter um objeto "pré-postado aguardando liberação" e exercitar a exclusão de verdade (hoje só o caminho "nada excluído" foi testado); (3) no `marcelo-envios`, atualizar para `^0.2`, ligar `exigirContrato`, trocar a limpeza manual da descrição por `ItemConteudo::limparDescricao()` e usar `exigeContrato()` na mensagem ao ADM.
+**Próximo passo recomendado:** (1) registrar o resultado do teste de exclusão em produção; (2) com a AGF, criar um **perfil de importação só para rastreamento** e usá-lo no `marcelo-envios`: sem ele o ViPP troca a etiqueta enviada; (3) no `marcelo-envios`, atualizar para `^0.3`, ligar `exigirContrato`, usar `ItemConteudo::limparDescricao()`, `exigeContrato()`, `verificarCredenciais()` no "Testar conexão" e `situacaoPostagem(…, BuscarPor::Referencia)` antes de reenviar uma exportação sem resposta.
 
 ## Histórico
 
@@ -153,7 +153,7 @@ Também confirmado: a produção usa a mesma URL padrão (`https://vpsrv.visuals
 - [x] Perfil de produção e etiqueta enviada: o suporte disse que é preciso um **perfil de importação só para rastreamento** (13/11/2026). **Pendente:** a AGF criar esse perfil e o `marcelo-envios` usá-lo; confirmar com `etiquetaDivergente()` falso na primeira postagem.
 - [x] `CodigoAdministrativo` não é exigido (suporte, 13/11/2026). **Sem resposta:** se o cartão é aceito sem os zeros à esquerda.
 - [x] ~~Endpoint de consulta/login~~: o suporte disse que não existe, mas `GetSituacaoPostagem` existe (13/11/2026); ver Backlog.
-- [ ] **TODO(confirmar)** com a VisualSet: como obter, na homologação, um objeto "pré-postado aguardando liberação" (perfil ou opção de importação) para testar a exclusão com sucesso; e qual é o formato real da resposta de sucesso (o suporte falou em "IDconhecimento 0/1", e o servidor devolve contagens).
+- [ ] **TODO(confirmar)**: formato real da resposta de **sucesso** da exclusão (o suporte falou em "IDconhecimento 0/1", e o servidor devolve contagens). Será verificado pelo teste do usuário em produção (13/11/2026). O segundo e-mail ao suporte foi preparado, mas o usuário decidiu não enviar; as perguntas dele continuam como `TODO(confirmar)` nesta lista.
 - [ ] **TODO(confirmar)**: formato de `ListaObjeto` com várias etiquetas no `GetSituacaoPostagem`; valores de `BuscarPor` (`ObservacaoDois`); e se o `204` com `Content-Length: 163` sem corpo é intencional.
 - [ ] **TODO(confirmar)**: significado de `ObjetoEPPN` na resposta da exclusão, e de `BloquearDownloadConhecimento`/`BloquearObjetoCorreios` (resposta contraditória do suporte).
 - [x] O servidor de produção é o mesmo `vpsrv.visualset.com.br`, só com outras credenciais (11/11/2026, pela integração do `marcelo-envios`).
