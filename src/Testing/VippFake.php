@@ -6,8 +6,11 @@ namespace MarceloFecchio\Vipp\Testing;
 
 use Closure;
 use MarceloFecchio\Vipp\Config\PerfilVipp;
+use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Postagem\Postagem;
+use MarceloFecchio\Vipp\Resultado\ResultadoExclusao;
 use MarceloFecchio\Vipp\Resultado\ResultadoPostagem;
+use MarceloFecchio\Vipp\Support\Normaliza;
 use MarceloFecchio\Vipp\Validation\Etiqueta;
 use MarceloFecchio\Vipp\Validation\ValidadorPostagem;
 use MarceloFecchio\Vipp\VippClientInterface;
@@ -26,6 +29,12 @@ final class VippFake implements VippClientInterface
 
     /** @var list<ResultadoPostagem|Throwable|Closure(Postagem): ResultadoPostagem> */
     private array $fila = [];
+
+    /** @var list<string> */
+    private array $exclusoes = [];
+
+    /** @var list<ResultadoExclusao|Throwable> */
+    private array $filaExclusao = [];
 
     private int $sequencia = 0;
 
@@ -65,6 +74,55 @@ final class VippFake implements VippClientInterface
             $resposta instanceof ResultadoPostagem => $resposta,
             default => self::resultadoValido($postagem->volume->etiqueta ?? $this->proximaEtiqueta(), $postagem->volume->etiqueta),
         };
+    }
+
+    /**
+     * Programa as próximas respostas de `excluirPostagem()`. Sem programação, a exclusão tem sucesso.
+     */
+    public function responderExclusaoCom(ResultadoExclusao|Throwable ...$respostas): self
+    {
+        array_push($this->filaExclusao, ...$respostas);
+
+        return $this;
+    }
+
+    public function excluirPostagem(string $etiqueta, ?PerfilVipp $perfil = null): ResultadoExclusao
+    {
+        $etiqueta = (string) Normaliza::codigo($etiqueta);
+
+        if ($this->validar && ($erro = Etiqueta::erro($etiqueta)) !== null) {
+            throw ValidacaoException::campo('Etiqueta', $erro);
+        }
+
+        $this->exclusoes[] = $etiqueta;
+
+        $resposta = array_shift($this->filaExclusao);
+
+        return match (true) {
+            $resposta instanceof Throwable => throw $resposta,
+            $resposta instanceof ResultadoExclusao => $resposta,
+            default => self::resultadoExclusao($etiqueta),
+        };
+    }
+
+    /**
+     * Etiquetas recebidas por `excluirPostagem()`, em ordem.
+     *
+     * @return list<string>
+     */
+    public function exclusoes(): array
+    {
+        return $this->exclusoes;
+    }
+
+    public static function resultadoExclusao(string $etiqueta = 'SQ000000005BR', bool $excluida = true): ResultadoExclusao
+    {
+        return ResultadoExclusao::fromResposta([
+            'TotalConhecimentos' => $excluida ? 1 : 0,
+            'ConhecimentosExcluidos' => $excluida ? 1 : 0,
+            'ArquivosExcluidos' => 0,
+            'ObjetoEPPN' => 0,
+        ], 200, $etiqueta);
     }
 
     public function validar(Postagem $postagem): array

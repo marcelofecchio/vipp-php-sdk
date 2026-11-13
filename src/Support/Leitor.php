@@ -85,6 +85,25 @@ final class Leitor
     }
 
     /**
+     * Erros do `DeleteConhecimento`: vêm como `{"Message": "[{...}]"}`, com a lista de erros em JSON dentro de uma string.
+     *
+     * @param array<array-key, mixed> $dados
+     *
+     * @return list<array<array-key, mixed>>
+     */
+    public static function listaDeMessage(array $dados): array
+    {
+        $mensagem = $dados['Message'] ?? null;
+        if (!is_string($mensagem)) {
+            return [];
+        }
+
+        $lista = json_decode($mensagem, true);
+
+        return is_array($lista) ? array_values(array_filter($lista, is_array(...))) : [];
+    }
+
+    /**
      * @param array<array-key, mixed> $dados
      *
      * @return list<array<array-key, mixed>>

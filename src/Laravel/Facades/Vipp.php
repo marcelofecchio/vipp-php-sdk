@@ -10,6 +10,7 @@ use MarceloFecchio\Vipp\VippClientInterface;
 
 /**
  * @method static \MarceloFecchio\Vipp\Resultado\ResultadoPostagem postarObjeto(\MarceloFecchio\Vipp\Postagem\Postagem $postagem, ?\MarceloFecchio\Vipp\Config\PerfilVipp $perfil = null)
+ * @method static \MarceloFecchio\Vipp\Resultado\ResultadoExclusao excluirPostagem(string $etiqueta, ?\MarceloFecchio\Vipp\Config\PerfilVipp $perfil = null)
  * @method static list<\MarceloFecchio\Vipp\Validation\Violacao> validar(\MarceloFecchio\Vipp\Postagem\Postagem $postagem)
  *
  * @see VippClientInterface

@@ -9,6 +9,7 @@ use MarceloFecchio\Vipp\Exceptions\TransporteException;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
 /**
@@ -40,6 +41,31 @@ final readonly class Transport
             ->withHeader('Accept-Encoding', 'UTF-8')
             ->withBody($this->streamFactory->createStream($json));
 
+        return $this->enviar($request);
+    }
+
+    /**
+     * DELETE sem corpo: o DeleteConhecimento recebe usuário, token e etiqueta em cabeçalhos.
+     *
+     * @param array<string, string> $cabecalhos
+     *
+     * @throws TransporteException
+     */
+    public function delete(string $url, array $cabecalhos): RespostaHttp
+    {
+        $request = $this->requestFactory->createRequest('DELETE', $url)->withHeader('Accept', 'application/json');
+        foreach ($cabecalhos as $nome => $valor) {
+            $request = $request->withHeader($nome, $valor);
+        }
+
+        return $this->enviar($request);
+    }
+
+    /**
+     * @throws TransporteException
+     */
+    private function enviar(RequestInterface $request): RespostaHttp
+    {
         try {
             $response = $this->http->sendRequest($request);
         } catch (ClientExceptionInterface $e) {

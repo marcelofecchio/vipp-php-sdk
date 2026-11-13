@@ -1,0 +1,3 @@
+{
+    "Message": "[{\"TipoErro\":2,\"DescricaoTipoErro\":\"Validacao\",\"CodigoErro\":1000,\"Campo\":\"Usuario\",\"Descricao\":\"É Obrigatório Informar o Usuario!\"},{\"TipoErro\":2,\"DescricaoTipoErro\":\"Validacao\",\"CodigoErro\":1010,\"Campo\":\"Token\",\"Descricao\":\"É Obrigatório Informar o Token!\"}]"
+}

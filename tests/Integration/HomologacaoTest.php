@@ -46,3 +46,16 @@ it('registra uma postagem válida e devolve etiqueta, valores e prazo', function
 it('lança AutenticacaoException com token errado', function (): void {
     $this->vipp->postarObjeto(postagemExemplo(), new PerfilVipp('onbiws', 'token-errado', '9363'));
 })->throws(AutenticacaoException::class)->group('integration');
+
+// Seguros: usam uma etiqueta inexistente, então nunca excluem nada. O ViPP só exclui objetos "pré-postados aguardando
+// liberação", e o perfil de homologação cria os objetos já postados, então o caminho de sucesso não é testável aqui.
+it('exclusão de etiqueta sem objeto elegível volta 200 com tudo zerado', function (): void {
+    $resultado = $this->vipp->excluirPostagem('SQ000000005BR');
+
+    expect($resultado->excluida())->toBeFalse()
+        ->and($resultado->totalConhecimentos)->toBe(0);
+})->group('integration');
+
+it('exclusão com token errado lança AutenticacaoException', function (): void {
+    $this->vipp->excluirPostagem('SQ000000005BR', new PerfilVipp('onbiws', 'token-errado', '9363'));
+})->throws(AutenticacaoException::class)->group('integration');

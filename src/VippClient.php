@@ -10,14 +10,18 @@ use MarceloFecchio\Vipp\Config\VippConfig;
 use MarceloFecchio\Vipp\Exceptions\AutenticacaoException;
 use MarceloFecchio\Vipp\Exceptions\HttpException;
 use MarceloFecchio\Vipp\Exceptions\RespostaInvalidaException;
+use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Http\HttpClientFactory;
 use MarceloFecchio\Vipp\Http\Mascara;
 use MarceloFecchio\Vipp\Http\RespostaHttp;
 use MarceloFecchio\Vipp\Http\Transport;
 use MarceloFecchio\Vipp\Postagem\Postagem;
 use MarceloFecchio\Vipp\Resultado\ErroVipp;
+use MarceloFecchio\Vipp\Resultado\ResultadoExclusao;
 use MarceloFecchio\Vipp\Resultado\ResultadoPostagem;
 use MarceloFecchio\Vipp\Support\Leitor;
+use MarceloFecchio\Vipp\Support\Normaliza;
+use MarceloFecchio\Vipp\Validation\Etiqueta;
 use MarceloFecchio\Vipp\Validation\ValidadorPostagem;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -65,6 +69,42 @@ final readonly class VippClient implements VippClientInterface
         $resposta = $this->transport->post($this->config->urlPostarObjeto(), $payload);
 
         return $this->interpretar($resposta, $postagem->volume->etiqueta);
+    }
+
+    public function excluirPostagem(string $etiqueta, ?PerfilVipp $perfil = null): ResultadoExclusao
+    {
+        $etiqueta = (string) Normaliza::codigo($etiqueta);
+
+        if ($this->config->validarAntesDeEnviar && ($erro = Etiqueta::erro($etiqueta)) !== null) {
+            throw ValidacaoException::campo('Etiqueta', $erro);
+        }
+
+        $perfil ??= $this->config->perfil;
+
+        $resposta = $this->transport->delete($this->config->urlExcluirPostagem(), [
+            'Usuario' => $perfil->usuario,
+            'Token' => $perfil->token,
+            'Etiqueta' => $etiqueta,
+        ]);
+
+        $corpo = Mascara::corpo($resposta->corpo);
+
+        if ($resposta->status === 401) {
+            throw new AutenticacaoException(
+                array_map(ErroVipp::fromArray(...), Leitor::listaDeMessage($resposta->dados ?? [])),
+                $corpo,
+            );
+        }
+
+        if ($resposta->status >= 200 && $resposta->status < 300) {
+            if ($resposta->dados === null || !array_key_exists('ConhecimentosExcluidos', $resposta->dados)) {
+                throw new RespostaInvalidaException("Resposta do ViPP sem ConhecimentosExcluidos (HTTP {$resposta->status}).", $resposta->status, $corpo);
+            }
+
+            return ResultadoExclusao::fromResposta($resposta->dados, $resposta->status, $etiqueta);
+        }
+
+        throw new HttpException($resposta->status, self::mensagemHttp($resposta->status), $corpo);
     }
 
     public function validar(Postagem $postagem): array

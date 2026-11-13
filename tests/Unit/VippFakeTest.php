@@ -61,3 +61,19 @@ it('permite desligar a validação no fake', function (): void {
 it('aplica exigirContrato no fake', function (): void {
     expect(fn() => new VippFake(exigirContrato: true)->postarObjeto(postagemExemplo()))->toThrow(ValidacaoException::class, 'ContratoEct.NrCartao');
 });
+
+it('registra e responde exclusões no fake', function (): void {
+    $fake = new VippFake()->responderExclusaoCom(
+        VippFake::resultadoExclusao('SQ000000005BR', excluida: false),
+        new HttpException(429, 'limite'),
+    );
+
+    expect($fake->excluirPostagem('sq000352886br')->excluida())->toBeFalse()
+        ->and(fn() => $fake->excluirPostagem('SQ000352886BR'))->toThrow(HttpException::class)
+        ->and($fake->excluirPostagem('SQ000352886BR')->excluida())->toBeTrue()
+        ->and($fake->exclusoes())->toBe(['SQ000352886BR', 'SQ000352886BR', 'SQ000352886BR']);
+});
+
+it('valida a etiqueta na exclusão do fake', function (): void {
+    new VippFake()->excluirPostagem('SQ123456786BR');
+})->throws(ValidacaoException::class);

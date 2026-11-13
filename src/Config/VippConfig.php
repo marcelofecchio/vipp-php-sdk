@@ -15,6 +15,9 @@ final readonly class VippConfig
 
     public const string CAMINHO_POSTAR_OBJETO = '/api/v1/middleware/PostarObjeto';
 
+    /** Não consta no manual; aparece na documentação interativa do servidor e foi explicado pelo suporte da VisualSet. */
+    public const string CAMINHO_EXCLUIR_POSTAGEM = '/api/v1/conhecimento/DeleteConhecimento';
+
     /** Credenciais públicas de homologação, publicadas no PDF do ViPP. */
     public const array CREDENCIAIS_HOMOLOGACAO = ['usuario' => 'onbiws', 'token' => '112233', 'id_perfil' => '9363'];
 
@@ -89,5 +92,10 @@ final readonly class VippConfig
     public function urlPostarObjeto(): string
     {
         return $this->baseUrl.self::CAMINHO_POSTAR_OBJETO;
+    }
+
+    public function urlExcluirPostagem(): string
+    {
+        return $this->baseUrl.self::CAMINHO_EXCLUIR_POSTAGEM;
     }
 }

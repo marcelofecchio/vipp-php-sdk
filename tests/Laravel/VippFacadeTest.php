@@ -53,3 +53,10 @@ it('Vipp::fake() aceita exigirContrato', function (): void {
 
     expect(Vipp::validar(postagemExemplo()))->toHaveCount(2);
 });
+
+it('Vipp::excluirPostagem() usa o fake', function (): void {
+    $fake = Vipp::fake();
+
+    expect(Vipp::excluirPostagem('SQ000352886BR')->excluida())->toBeTrue()
+        ->and($fake->exclusoes())->toBe(['SQ000352886BR']);
+});
