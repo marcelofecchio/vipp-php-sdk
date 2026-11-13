@@ -375,6 +375,98 @@
                     ]
                 }
             }
+        },
+        {
+            "name": "08 Excluir etiqueta sem objeto elegível (200, nada excluído)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const corpo = pm.response.json();",
+                            "pm.test('Nada excluído', () => { pm.expect(corpo.TotalConhecimentos).to.eql(0); pm.expect(corpo.ConhecimentosExcluidos).to.eql(0); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "description": "DeleteConhecimento (não consta no manual). Só exclui objetos pré-postados aguardando liberação; etiqueta inexistente ou em outro status volta 200 com tudo zerado. Esta requisição usa uma etiqueta inexistente e nunca exclui nada.",
+                "header": [
+                    {
+                        "key": "Usuario",
+                        "value": "{{usuario}}"
+                    },
+                    {
+                        "key": "Token",
+                        "value": "{{token}}"
+                    },
+                    {
+                        "key": "Etiqueta",
+                        "value": "SQ000000005BR"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/conhecimento/DeleteConhecimento",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "conhecimento",
+                        "DeleteConhecimento"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "09 Excluir com token errado (401 / 1030)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                            "const erros = JSON.parse(pm.response.json().Message);",
+                            "pm.test('Erro 1030', () => pm.expect(erros.map(e => e.CodigoErro)).to.include(1030));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "description": "O erro vem como {\"Message\": \"[{...}]\"}: a lista de erros é um JSON dentro de uma string. No SDK vira AutenticacaoException.",
+                "header": [
+                    {
+                        "key": "Usuario",
+                        "value": "{{usuario}}"
+                    },
+                    {
+                        "key": "Token",
+                        "value": "token-invalido"
+                    },
+                    {
+                        "key": "Etiqueta",
+                        "value": "SQ000000005BR"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/v1/conhecimento/DeleteConhecimento",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "conhecimento",
+                        "DeleteConhecimento"
+                    ]
+                }
+            }
         }
     ],
     "variable": [

@@ -2,7 +2,7 @@
 
 | Arquivo | Conteúdo |
 |---|---|
-| `ViPP.postman_collection.json` | 7 requisições com testes: postagem válida, postagem com etiqueta informada, campos obrigatórios (400), DV da etiqueta (400/2002), data da NF (400/1500), credenciais (401/1030), cartão sem contrato (400/1100). As postagens válidas enviam `ContratoEct`, exigido em produção. |
+| `ViPP.postman_collection.json` | 9 requisições com testes: postagem válida, postagem com etiqueta informada, campos obrigatórios (400), DV da etiqueta (400/2002), data da NF (400/1500), credenciais (401/1030), cartão sem contrato (400/1100), exclusão sem objeto elegível (200, nada excluído) e exclusão com token errado (401/1030). As postagens válidas enviam `ContratoEct`, exigido em produção. As requisições de exclusão usam uma etiqueta inexistente e nunca excluem nada. |
 | `Homologacao.postman_environment.json` | `baseUrl`, `usuario`, `token`, `idPerfil` (credenciais públicas de homologação), `nrContrato` e `nrCartao` (fictícios: a homologação usa o contrato do perfil) e `etiquetaInformada`. |
 | `gerar-colecao.php` | Gera os dois arquivos a partir dos DTOs do SDK. **Não edite os JSON à mão**: altere o script e rode de novo. |
 
