@@ -154,6 +154,44 @@ $requisicaoSituacao = static function (string $nome, string $descricao, string $
 };
 
 /**
+ * SOAP 1.1 (bloqueio e liberação). Etiqueta inexistente: nunca altera nada.
+ *
+ * @param list<string> $testes
+ *
+ * @return array<string, mixed>
+ */
+$requisicaoSoap = static function (string $nome, string $descricao, string $operacao, string $parametro, string $campoStatus, string $token, array $testes): array {
+    $envelope = '<?xml version="1.0" encoding="utf-8"?>'."\n"
+        .'<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v="http://www.visualset.inf.br/">'."\n"
+        ."  <soap:Body>\n    <v:{$operacao}>\n      <v:{$parametro}>\n"
+        ."        <v:PerfilVipp><v:Usuario>{{usuario}}</v:Usuario><v:Token>{$token}</v:Token><v:IdPerfil>{{idPerfil}}</v:IdPerfil></v:PerfilVipp>\n"
+        ."        <v:Etiqueta>SQ000000005BR</v:Etiqueta>\n        <v:{$campoStatus}>1</v:{$campoStatus}>\n"
+        ."      </v:{$parametro}>\n    </v:{$operacao}>\n  </soap:Body>\n</soap:Envelope>";
+
+    return [
+        'name' => $nome,
+        'event' => [[
+            'listen' => 'test',
+            'script' => ['type' => 'text/javascript', 'exec' => $testes],
+        ]],
+        'request' => [
+            'method' => 'POST',
+            'description' => $descricao,
+            'header' => [
+                ['key' => 'Content-Type', 'value' => 'text/xml; charset=utf-8'],
+                ['key' => 'SOAPAction', 'value' => '"http://www.visualset.inf.br/'.$operacao.'"'],
+            ],
+            'body' => ['mode' => 'raw', 'raw' => $envelope, 'options' => ['raw' => ['language' => 'xml']]],
+            'url' => [
+                'raw' => '{{baseUrl}}'.VippConfig::CAMINHO_SOAP,
+                'host' => ['{{baseUrl}}'],
+                'path' => [trim(VippConfig::CAMINHO_SOAP, '/')],
+            ],
+        ],
+    ];
+};
+
+/**
  * @return list<string>
  */
 $testesErro = static fn(int $status, int $codigo): array => [
@@ -282,6 +320,44 @@ $colecao = [
             [
                 "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
                 "pm.test('ListaErros contém o erro 1030', () => pm.expect(pm.response.json().ListaErros.map(e => e.CodigoErro)).to.include(1030));",
+            ],
+        ),
+        $requisicaoSoap(
+            '12 Bloquear etiqueta inexistente (SOAP)',
+            'BloquearDownloadConhecimento. O ViPP responde "Objeto Bloqueado" até para etiqueta inexistente: o retorno não prova o efeito. Bloquear deixa a postagem "aguardando liberação", o status que a exclusão exige.',
+            'BloquearDownloadConhecimento',
+            'BloquearPostagem',
+            'StBloqueado',
+            '{{token}}',
+            [
+                "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                "pm.test('StBloqueado = 1', () => pm.expect(pm.response.text()).to.include('<StBloqueado>1</StBloqueado>'));",
+                "pm.test('Sem erros', () => pm.expect(pm.response.text()).to.include('<ListaErros />'));",
+            ],
+        ),
+        $requisicaoSoap(
+            '13 Liberar etiqueta inexistente (SOAP)',
+            'LiberarDownloadConhecimento: devolve a postagem a "liberado para download". Postagem liberada não pode ser excluída.',
+            'LiberarDownloadConhecimento',
+            'LiberarPostagem',
+            'StLiberado',
+            '{{token}}',
+            [
+                "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                "pm.test('StLiberado = 1', () => pm.expect(pm.response.text()).to.include('<StLiberado>1</StLiberado>'));",
+            ],
+        ),
+        $requisicaoSoap(
+            '14 Bloquear com token errado (SOAP: HTTP 200 com erro 1030)',
+            'Diferente do REST, o SOAP não responde 401: devolve HTTP 200 com o erro 1030 em ListaErros (e ecoa o token). No SDK vira AutenticacaoException.',
+            'BloquearDownloadConhecimento',
+            'BloquearPostagem',
+            'StBloqueado',
+            'token-invalido',
+            [
+                "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                "pm.test('Erro 1030', () => pm.expect(pm.response.text()).to.include('<CodigoErro>1030</CodigoErro>'));",
+                "pm.test('StBloqueado = 0', () => pm.expect(pm.response.text()).to.include('<StBloqueado>0</StBloqueado>'));",
             ],
         ),
     ],

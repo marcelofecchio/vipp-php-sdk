@@ -93,3 +93,26 @@ it('situacaoPostagem encontra pela referência uma postagem criada agora', funct
         ->and($lista[0]->etiqueta)->toBe($postado->etiqueta())
         ->and($lista[0]->idConhecimento)->toBe($postado->volume?->idConhecimento);
 })->group('integration');
+
+// Bloqueio/liberação: só com etiqueta inexistente (não altera nada) ou com postagem criada no próprio teste.
+it('bloquear e liberar etiqueta inexistente são aceitos pelo ViPP (confirmado não prova o efeito)', function (): void {
+    expect($this->vipp->bloquearPostagem('SQ000000005BR')->confirmado())->toBeTrue()
+        ->and($this->vipp->liberarPostagem('SQ000000005BR')->confirmado())->toBeTrue();
+})->group('integration');
+
+it('bloqueio com token errado lança AutenticacaoException', function (): void {
+    $this->vipp->bloquearPostagem('SQ000000005BR', perfil: new PerfilVipp('onbiws', 'token-errado', '9363'));
+})->throws(AutenticacaoException::class)->group('integration');
+
+it('bloqueia e libera uma postagem criada agora', function (): void {
+    $postado = $this->vipp->postarObjeto(postagemExemplo(new Volume(declaracaoExemplo(), peso: 300, codigoBarraVolume: 'SDK-BLQ-'.date('YmdHis'))));
+    $etiqueta = (string) $postado->etiqueta();
+
+    $bloqueio = $this->vipp->bloquearPostagem($etiqueta, 'Teste de integração do SDK');
+    $liberacao = $this->vipp->liberarPostagem($etiqueta);
+
+    expect($bloqueio->confirmado())->toBeTrue()
+        ->and($bloqueio->descricao)->toBe('Objeto Bloqueado')
+        ->and($liberacao->confirmado())->toBeTrue()
+        ->and($bloqueio->xml)->not->toContain('<Token>112233</Token>');
+})->group('integration');

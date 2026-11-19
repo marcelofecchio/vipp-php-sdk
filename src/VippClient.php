@@ -15,9 +15,11 @@ use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Http\HttpClientFactory;
 use MarceloFecchio\Vipp\Http\Mascara;
 use MarceloFecchio\Vipp\Http\RespostaHttp;
+use MarceloFecchio\Vipp\Http\Soap;
 use MarceloFecchio\Vipp\Http\Transport;
 use MarceloFecchio\Vipp\Postagem\Postagem;
 use MarceloFecchio\Vipp\Resultado\ErroVipp;
+use MarceloFecchio\Vipp\Resultado\ResultadoBloqueio;
 use MarceloFecchio\Vipp\Resultado\ResultadoConexao;
 use MarceloFecchio\Vipp\Resultado\ResultadoExclusao;
 use MarceloFecchio\Vipp\Resultado\ResultadoPostagem;
@@ -79,12 +81,7 @@ final readonly class VippClient implements VippClientInterface
 
     public function excluirPostagem(string $etiqueta, ?PerfilVipp $perfil = null): ResultadoExclusao
     {
-        $etiqueta = (string) Normaliza::codigo($etiqueta);
-
-        if ($this->config->validarAntesDeEnviar && ($erro = Etiqueta::erro($etiqueta)) !== null) {
-            throw ValidacaoException::campo('Etiqueta', $erro);
-        }
-
+        $etiqueta = $this->etiquetaValidada($etiqueta);
         $perfil ??= $this->config->perfil;
 
         $resposta = $this->transport->delete($this->config->urlExcluirPostagem(), [
@@ -108,6 +105,18 @@ final readonly class VippClient implements VippClientInterface
         }
 
         throw new HttpException($resposta->status, self::mensagemHttp($resposta->status), $corpo);
+    }
+
+    public function bloquearPostagem(string $etiqueta, ?string $descricao = null, ?PerfilVipp $perfil = null): ResultadoBloqueio
+    {
+        $descricao = $descricao === null ? null : (trim($descricao) === '' ? null : trim($descricao));
+
+        return $this->bloqueio(ResultadoBloqueio::BLOQUEIO, 'BloquearPostagem', 'StBloqueado', $etiqueta, $descricao, $perfil);
+    }
+
+    public function liberarPostagem(string $etiqueta, ?PerfilVipp $perfil = null): ResultadoBloqueio
+    {
+        return $this->bloqueio(ResultadoBloqueio::LIBERACAO, 'LiberarPostagem', 'StLiberado', $etiqueta, null, $perfil);
     }
 
     public function verificarCredenciais(?PerfilVipp $perfil = null): ResultadoConexao
@@ -162,6 +171,78 @@ final readonly class VippClient implements VippClientInterface
         }
 
         throw new HttpException($resposta->status, self::mensagemHttp($resposta->status), $corpo);
+    }
+
+    /**
+     * Bloqueio e liberação são SOAP: o ViPP responde HTTP 200 com o resultado (inclusive credencial errada, em
+     * `ListaErros`) e HTTP 500 com SOAP Fault quando o envelope é recusado.
+     */
+    private function bloqueio(
+        string $operacao,
+        string $parametro,
+        string $campoStatus,
+        string $etiqueta,
+        ?string $descricao,
+        ?PerfilVipp $perfil,
+    ): ResultadoBloqueio {
+        $etiqueta = $this->etiquetaValidada($etiqueta);
+        $perfil ??= $this->config->perfil;
+
+        // Ordem da sequência do WSDL: PerfilVipp, Etiqueta, St*, Descricao.
+        $envelope = Soap::envelope($operacao, $parametro, [
+            'PerfilVipp' => $perfil->toArray(),
+            'Etiqueta' => $etiqueta,
+            $campoStatus => '1',
+            'Descricao' => $descricao,
+        ]);
+
+        $resposta = $this->transport->postXml($this->config->urlSoap(), $envelope, Soap::NAMESPACE.$operacao);
+        $corpo = Mascara::corpo($resposta->corpo);
+        $dados = Soap::resultado($resposta->corpo, $operacao.'Result');
+
+        if ($resposta->status >= 200 && $resposta->status < 300) {
+            if ($dados === null) {
+                throw new RespostaInvalidaException("Resposta SOAP do ViPP sem {$operacao}Result (HTTP {$resposta->status}).", $resposta->status, $corpo);
+            }
+
+            unset($dados['PerfilVipp']);
+            $erros = array_map(ErroVipp::fromArray(...), Leitor::lista($dados, 'ListaErros'));
+
+            foreach ($erros as $erro) {
+                if (in_array($erro->codigoErro, AutenticacaoException::CODIGOS_CREDENCIAL, true)) {
+                    throw new AutenticacaoException($erros, $corpo, $resposta->status);
+                }
+            }
+
+            return new ResultadoBloqueio(
+                etiqueta: $etiqueta,
+                operacao: $operacao,
+                status: Leitor::inteiro($dados, $campoStatus),
+                descricao: Leitor::texto($dados, 'Descricao'),
+                erros: $erros,
+                httpStatus: $resposta->status,
+                dados: $dados,
+                xml: Mascara::segredos($resposta->corpo),
+            );
+        }
+
+        $falha = Soap::falha($resposta->corpo);
+        $mensagem = $falha === null
+            ? self::mensagemHttp($resposta->status)
+            : "ViPP respondeu HTTP {$resposta->status} (SOAP Fault): {$falha}";
+
+        throw new HttpException($resposta->status, $mensagem, $corpo);
+    }
+
+    private function etiquetaValidada(string $etiqueta): string
+    {
+        $etiqueta = (string) Normaliza::codigo($etiqueta);
+
+        if ($this->config->validarAntesDeEnviar && ($erro = Etiqueta::erro($etiqueta)) !== null) {
+            throw ValidacaoException::campo('Etiqueta', $erro);
+        }
+
+        return $etiqueta;
     }
 
     private function consultarSituacao(string $valor, BuscarPor $buscarPor, bool $completo, ?PerfilVipp $perfil): RespostaHttp

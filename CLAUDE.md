@@ -4,8 +4,8 @@
 
 Pacote Composer `marcelofecchio/vipp-php-sdk` (namespace `MarceloFecchio\Vipp`): SDK para o Web Service de Postagem do **ViPP** (VisualSet), usado por agências franqueadas dos Correios. Primeiro consumidor: o `marcelo-envios` (Laravel 13), que envia ao ViPP as etiquetas que já gerou nos Correios.
 
-- **Escopo**: `PostarObjeto` via REST/JSON, `excluirPostagem()` (`DeleteConhecimento`), `situacaoPostagem()` e `verificarCredenciais()` (`GetSituacaoPostagem`, somente leitura), todos fora do manual, validação local, resultado tipado, integração Laravel, fake para testes, coleção Postman.
-- **Fora do escopo**: SOAP, Logística Reversa (campos `Remetente`, `TipoAutorizacaoReversa`, `DiasPrazoPostagemEticket`, `DataColeta`), eventos Laravel, envio em lote, retry automático.
+- **Escopo**: `PostarObjeto` via REST/JSON, `excluirPostagem()` (`DeleteConhecimento`), `situacaoPostagem()` e `verificarCredenciais()` (`GetSituacaoPostagem`, somente leitura), `bloquearPostagem()` e `liberarPostagem()` (SOAP `BloquearDownloadConhecimento`/`LiberarDownloadConhecimento`, sem extensão `soap`), todos fora do manual, validação local, resultado tipado, integração Laravel, fake para testes, coleção Postman.
+- **Fora do escopo**: o restante do SOAP, Logística Reversa (campos `Remetente`, `TipoAutorizacaoReversa`, `DiasPrazoPostagemEticket`, `DataColeta`), eventos Laravel, envio em lote, retry automático.
 - Requisitos originais: `docs/PROMPT-INICIAL.md`. Manual oficial: <https://www.visualset.com.br/layouts/WebServicePostagemViPP.pdf>.
 
 ## Stack
@@ -19,10 +19,10 @@ src/
   VippClient.php / VippClientInterface.php   postarObjeto(), validar(), homologacao()
   Config/          VippConfig (URL, timeout, fromArray do config Laravel), PerfilVipp (token mascarado)
   Postagem/        DTOs de entrada: Postagem, Destinatario, Volume, DeclaracaoConteudo, ItemConteudo, NotaFiscal, ContratoEct
-  Resultado/       ResultadoPostagem, VolumePostado, ErroVipp, ResultadoExclusao, SituacaoPostagem, ResultadoConexao
+  Resultado/       ResultadoPostagem, VolumePostado, ErroVipp, ResultadoExclusao, SituacaoPostagem, ResultadoConexao, ResultadoBloqueio
   Validation/      ValidadorPostagem (regras do PDF), Etiqueta (DV), Documento (CPF/CNPJ alfanumérico), Violacao
   ValueObject/     Dinheiro (centavos; serializa "1234,56")
-  Http/            Transport, HttpClientFactory, Mascara (esconde o token), RespostaHttp
+  Http/            Transport, HttpClientFactory, Mascara (esconde o token), RespostaHttp, Soap (envelope e leitura do XML)
   Enum/            ServicoAdicional, StatusPostagem
   Exceptions/      VippException (interface) + Configuracao, Validacao, Autenticacao(401), Http, Transporte, RespostaInvalida
   Testing/         VippFake
@@ -66,7 +66,7 @@ No Git Bash do Windows, heredocs podem perder barras invertidas. Para arquivos c
 4. **Sem retry automático**: a postagem não é idempotente.
 5. Um volume por `Postagem`: o ViPP descarta os volumes além do primeiro.
 6. Não inventar campos, códigos ou regras. O que não estiver no PDF nem tiver sido observado na homologação vira `TODO(confirmar)` e é registrado em `docs/PROGRESSO.md`.
-7. **Exclusão**: só rode `excluirPostagem()` na homologação com etiqueta **inexistente** ou de um objeto que você mesmo criou. Nunca exclua postagens de terceiros nem de produção. O sucesso real da exclusão nunca foi exercitado (ver `docs/PROGRESSO.md`).
+7. **Exclusão, bloqueio e liberação**: só rode `excluirPostagem()`, `bloquearPostagem()` e `liberarPostagem()` na homologação com etiqueta **inexistente** ou de um objeto que você mesmo criou. Nunca altere postagens de terceiros nem de produção. A exclusão com sucesso foi confirmada em produção pelo `marcelo-envios` (bloqueio feito na tela do ViPP); o bloqueio pela API seguido de exclusão ainda não foi testado em produção. O SOAP de bloqueio ecoa o token no XML: mantenha `Mascara::segredos()` no `ResultadoBloqueio::$xml`.
    A consulta de situação manda a **senha na query string**: não registre a URL em log e mantenha o mascaramento (`Mascara`) e a exceção sem encadeamento em `Transport::get()`. Fixtures com dados da homologação devem ser sanitizadas (e-mail, CPF/CNPJ de pessoas).
 8. Mudou o comportamento da API? Atualize as fixtures (capturando da homologação), a coleção Postman (`gerar-colecao.php`) e a seção "O que difere do manual" do README.
 

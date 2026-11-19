@@ -21,6 +21,9 @@ final readonly class VippConfig
     /** Também fora do manual (documentação interativa do servidor). Consulta somente leitura. */
     public const string CAMINHO_SITUACAO_POSTAGEM = '/api/v1/conhecimento/GetSituacaoPostagem';
 
+    /** Serviço SOAP (bloqueio e liberação; não há equivalente REST). */
+    public const string CAMINHO_SOAP = '/PostagemVipp.asmx';
+
     /** Credenciais públicas de homologação, publicadas no PDF do ViPP. */
     public const array CREDENCIAIS_HOMOLOGACAO = ['usuario' => 'onbiws', 'token' => '112233', 'id_perfil' => '9363'];
 
@@ -105,5 +108,10 @@ final readonly class VippConfig
     public function urlSituacaoPostagem(): string
     {
         return $this->baseUrl.self::CAMINHO_SITUACAO_POSTAGEM;
+    }
+
+    public function urlSoap(): string
+    {
+        return $this->baseUrl.self::CAMINHO_SOAP;
     }
 }

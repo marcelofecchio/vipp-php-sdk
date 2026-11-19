@@ -8,6 +8,7 @@ use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Postagem\Destinatario;
 use MarceloFecchio\Vipp\Postagem\Postagem;
 use MarceloFecchio\Vipp\Postagem\Volume;
+use MarceloFecchio\Vipp\Resultado\ResultadoBloqueio;
 use MarceloFecchio\Vipp\Testing\VippFake;
 use MarceloFecchio\Vipp\Validation\Etiqueta;
 
@@ -106,3 +107,21 @@ it('programa a verificação de credenciais no fake', function (): void {
     expect($fake->verificarCredenciais()->autenticado)->toBeFalse()
         ->and($fake->verificarCredenciais()->autenticado)->toBeTrue();
 });
+
+it('programa e registra bloqueios e liberações no fake', function (): void {
+    $fake = new VippFake()->responderBloqueioCom(
+        VippFake::resultadoBloqueio('SQ000352886BR', confirmado: false),
+        new HttpException(500, 'SOAP Fault'),
+    );
+
+    expect($fake->bloquearPostagem('sq000352886br')->confirmado())->toBeFalse()
+        ->and(fn() => $fake->liberarPostagem('SQ000352886BR'))->toThrow(HttpException::class)
+        ->and($fake->bloquearPostagem('SQ000352886BR')->descricao)->toBe('Objeto Bloqueado')
+        ->and($fake->liberarPostagem('SQ000352886BR')->operacao)->toBe(ResultadoBloqueio::LIBERACAO)
+        ->and($fake->bloqueios())->toBe(['SQ000352886BR', 'SQ000352886BR'])
+        ->and($fake->liberacoes())->toBe(['SQ000352886BR', 'SQ000352886BR']);
+});
+
+it('valida a etiqueta no bloqueio do fake', function (): void {
+    new VippFake()->bloquearPostagem('SQ123456786BR');
+})->throws(ValidacaoException::class);

@@ -7,11 +7,12 @@ SDK PHP 8.4 para o **Web Service de Postagem do ViPP** (VisualSet), o sistema us
 - **Validação local** das regras do manual antes do envio, com mensagens por campo.
 - Resultado tipado: etiqueta, valores, prazo e erros do ViPP.
 - **Exclusão** de postagens pré-postadas aguardando liberação (`excluirPostagem()`).
+- **Bloqueio e liberação** de postagens (`bloquearPostagem()`, `liberarPostagem()`), via SOAP, necessários para excluir.
 - **Consulta de situação** (`situacaoPostagem()`), inclusive pela sua referência, e **teste de credenciais** sem criar postagem (`verificarCredenciais()`).
 - **Integração com Laravel** (auto-discovery, `config/vipp.php`, Facade `Vipp`, `Vipp::fake()`).
 - Comportamento conferido na homologação real; veja [o que difere do PDF](#o-que-difere-do-manual-do-vipp).
 
-Fora do escopo: SOAP e Logística Reversa.
+Fora do escopo: o restante do SOAP (só bloqueio e liberação usam SOAP) e a Logística Reversa.
 
 ## Requisitos
 
@@ -137,7 +138,7 @@ A função troca os caracteres não aceitos por espaço, junta espaços repetido
 |---|---|
 | Dados reprovados na validação local | `ValidacaoException` com `$e->violacoes` (campo + mensagem). **Nada é enviado.** |
 | ViPP recusa os dados (HTTP 400) | **Não é exceção**: `ResultadoPostagem` com `ehValida() === false` e `erros`. |
-| Usuário, token ou perfil inválidos (HTTP 401) | `AutenticacaoException` com `$e->erros` (1030, 1002). |
+| Usuário, token ou perfil inválidos (HTTP 401) | `AutenticacaoException` com `$e->erros` (1030, 1002). No bloqueio e na liberação (SOAP), o ViPP responde HTTP 200 com o erro em `ListaErros`: mesma exceção, com `statusCode` 200. |
 | Outros HTTP (404, 429, 5xx…) | `HttpException`; `$e->ehTemporario()` indica 429/5xx. |
 | Rede / timeout | `TransporteException`. |
 | Resposta fora do formato | `RespostaInvalidaException`. |
@@ -165,13 +166,17 @@ Para validar sem enviar nada, use `$vipp->validar($postagem)`, que devolve uma l
 
 ### Excluir uma postagem
 
+Uma postagem criada pelo `PostarObjeto` fica **"Liberado para download"** e, nesse status, não pode ser excluída. **Primeiro bloqueie, depois exclua:**
+
 ```php
+$vipp->bloquearPostagem('SQ000352886BR', 'Exclusão solicitada pelo sistema'); // volta a "aguardando liberação"
+
 $resultado = $vipp->excluirPostagem('SQ000352886BR');
 
 if ($resultado->excluida()) {
     // o ViPP excluiu o objeto
 } else {
-    // nada foi excluído: etiqueta inexistente ou fora do status "aguardando liberação"
+    // nada foi excluído: etiqueta inexistente, ou postagem fora do status "aguardando liberação"
 }
 ```
 
@@ -182,7 +187,40 @@ A exclusão (`DeleteConhecimento`) **não consta no manual**: foi encontrada na 
 - O SDK valida o formato e o dígito verificador da etiqueta antes de enviar (`ValidacaoException`). Usuário ou token recusados viram `AutenticacaoException`.
 - A chamada é um `DELETE` sem corpo, com `Usuario`, `Token` e `Etiqueta` em **cabeçalhos**. O `IdPerfil` não é enviado.
 
-**Não verificado:** o caminho de sucesso. Na homologação, o perfil 9363 cria os objetos já postados (não "aguardando liberação"), então nenhuma exclusão com sucesso real foi possível. O SDK considera excluído quando `ConhecimentosExcluidos` é maior que zero, a partir do formato visto com tudo zerado. O suporte descreveu a resposta de outra forma ("IDconhecimento 0 ou 1"), que não apareceu em nenhum teste. Se o seu primeiro teste real divergir, avise: o dado bruto fica em `$resultado->resposta`.
+**Confirmado em produção** (integração do MARCELO ENVIOS, 19/11/2026):
+- logo depois do `PostarObjeto`, a exclusão voltou zerada, porque a postagem estava "Liberado para download";
+- depois de **bloquear a postagem na tela do ViPP**, a exclusão funcionou e `excluida()` reconheceu a resposta.
+
+O bloqueio **pela API** (`bloquearPostagem()`) ainda não foi testado nesse fluxo em produção (ver [Bloquear e liberar](#bloquear-e-liberar-uma-postagem)).
+
+#### Exclusão sem resposta (erro de rede ou timeout)
+
+Se a chamada falhar com `TransporteException`, não dá para saber se o ViPP excluiu. Repetir é inofensivo, porque uma etiqueta sem objeto elegível volta zerada. Mas uma repetição zerada **não confirma** a exclusão: o objeto pode ter sido excluído na primeira tentativa, ou nunca ter ficado elegível. Para conferir:
+
+1. Consulte `situacaoPostagem($etiqueta)`. **Lista vazia** indica que a postagem não existe mais no ViPP. Esse é o comportamento esperado da consulta para objetos inexistentes, mas ainda não foi observado depois de uma exclusão real.
+2. Se a postagem ainda aparecer, ela não foi excluída: confira o bloqueio e tente de novo.
+
+### Bloquear e liberar uma postagem
+
+```php
+$bloqueio = $vipp->bloquearPostagem('SQ000352886BR', 'Exclusão solicitada pelo sistema'); // descrição opcional
+$liberacao = $vipp->liberarPostagem('SQ000352886BR');
+
+$bloqueio->confirmado();    // o ViPP aceitou o pedido (status 1 e sem erros)
+$bloqueio->descricao;       // "Objeto Bloqueado"
+$bloqueio->xml;             // resposta bruta, com o token mascarado
+```
+
+- **Bloquear** (`BloquearDownloadConhecimento`) deixa a postagem "aguardando liberação", o status que a [exclusão](#excluir-uma-postagem) exige. **Liberar** (`LiberarDownloadConhecimento`) volta a "liberado para download"; liberada, a postagem não pode ser excluída.
+- **Não há equivalente REST**: são operações do **serviço SOAP** (`/PostagemVipp.asmx`). O SDK monta o envelope e envia pelo mesmo cliente PSR-18, sem precisar da extensão `soap` do PHP.
+- **`confirmado()` não prova o efeito.** O ViPP responde "Objeto Bloqueado" até para uma etiqueta inexistente, e a consulta de situação não mostra se a postagem está bloqueada. A prova é a exclusão: depois de bloquear, `excluirPostagem()` com `excluida()` verdadeiro.
+- **Credencial errada não volta 401**: o SOAP responde HTTP 200 com o erro 1030 em `ListaErros` (e ecoa o token). O SDK lança `AutenticacaoException` (com `statusCode` 200) e mascara o token no XML.
+- Envelope recusado (SOAP Fault, HTTP 500) vira `HttpException`, com a `faultstring` na mensagem.
+- A etiqueta é validada como na exclusão (formato e dígito verificador).
+
+**O que foi e o que não foi verificado:**
+- Na homologação, bloquear e liberar uma postagem criada pelo próprio teste foram aceitos. Mas a exclusão logo depois do bloqueio continuou zerada. O perfil 9363 cria as postagens já postadas e não serve para testar esse fluxo.
+- Em produção, o fluxo bloquear e depois excluir foi confirmado **com o bloqueio feito na tela do ViPP**. O primeiro teste com `bloquearPostagem()` fica com a aplicação: registre `$bloqueio->xml` e o `$resultado->resposta` da exclusão seguinte.
 
 ### Consultar a situação de uma postagem
 
@@ -229,7 +267,7 @@ O manual não tem esse recurso, e o suporte da VisualSet respondeu que não exis
 
 ### Cuidados com a consulta de situação
 
-- **A senha vai na URL** (`?Senha=...`): é como o ViPP exige. O SDK mascara a URL nas mensagens de erro e, nessa chamada, não encadeia a exceção original do cliente HTTP, porque ela traz a URL. Se você usar um cliente HTTP próprio com log de requisições, **ele vai registrar a senha**: filtre o parâmetro `Senha`.
+- **A senha vai na URL** (`?Senha=...`): é como o ViPP exige. O SDK mascara a URL nas mensagens de erro e, nessa chamada, não encadeia a exceção original do cliente HTTP, porque ela traz a URL. Qualquer coisa que registre URLs **vai gravar a senha**: um cliente HTTP próprio com log, um middleware de log do Guzzle, um proxy, o Laravel Telescope ou um APM. Filtre o parâmetro `Senha` nessas ferramentas, ou não registre as URLs do ViPP. `verificarCredenciais()` usa a mesma consulta, então vale o mesmo cuidado. As outras chamadas (postagem, exclusão, bloqueio) não levam a senha na URL.
 - **O ViPP responde `204 No Content` com `Content-Length: 163` e sem corpo**, o que é uma resposta mal formada. O cURL (usado pelo Guzzle) tolera. Clientes HTTP estritos podem lançar erro de leitura, que o SDK devolve como `TransporteException`. Foi o caso do Postman, por isso a coleção não tem essa requisição.
 
 ## Laravel
@@ -354,7 +392,7 @@ expect($fake->postagens())->toHaveCount(1);
 expect($fake->ultimaPostagem()->volume->etiqueta)->toBe('SQ000352886BR');
 ```
 
-Sem resposta programada, o fake devolve uma postagem válida, repetindo a etiqueta enviada ou gerando uma etiqueta válida. Ele aplica a mesma validação local do cliente real. Se a aplicação usa `exigirContrato`, chame `Vipp::fake(exigirContrato: true)`. Para a exclusão, `$fake->exclusoes()` lista as etiquetas recebidas e `$fake->responderExclusaoCom(VippFake::resultadoExclusao(excluida: false))` programa a resposta. Para a consulta, `$fake->responderSituacaoCom([VippFake::situacao('SQ000352886BR', 'ME-1234')])` e `$fake->consultas()`. Para as credenciais, `$fake->responderConexaoCom(VippFake::conexaoRecusada())`. Fora do Laravel, use `new VippFake()`.
+Sem resposta programada, o fake devolve uma postagem válida, repetindo a etiqueta enviada ou gerando uma etiqueta válida. Ele aplica a mesma validação local do cliente real. Se a aplicação usa `exigirContrato`, chame `Vipp::fake(exigirContrato: true)`. Para a exclusão, `$fake->exclusoes()` lista as etiquetas recebidas e `$fake->responderExclusaoCom(VippFake::resultadoExclusao(excluida: false))` programa a resposta. Para a consulta, `$fake->responderSituacaoCom([VippFake::situacao('SQ000352886BR', 'ME-1234')])` e `$fake->consultas()`. Para as credenciais, `$fake->responderConexaoCom(VippFake::conexaoRecusada())`. Para bloqueio e liberação (uma fila para os dois), `$fake->responderBloqueioCom(VippFake::resultadoBloqueio(confirmado: false))`, `$fake->bloqueios()` e `$fake->liberacoes()`. Fora do Laravel, use `new VippFake()`.
 
 ## O que difere do manual do ViPP
 
@@ -369,6 +407,8 @@ Conferido na homologação em 30/10/2026 e em produção (integração do MARCEL
 - **Etiqueta informada pode ser substituída**: o ViPP só mantém a etiqueta com um perfil de importação criado para rastreamento (veja `etiquetaDivergente()`).
 - **O manual só descreve o `PostarObjeto`**, mas o servidor tem outros endpoints. Três já foram usados: a [exclusão](#excluir-uma-postagem), a [consulta de situação](#consultar-a-situação-de-uma-postagem) e o [teste de credenciais](#testar-as-credenciais), que usa a consulta.
 - **Os erros da exclusão vêm diferentes**: `{"Message": "[{...}]"}`, com a lista de erros em JSON dentro de uma string. O SDK já trata isso.
+- **Bloqueio e liberação só existem em SOAP** e confirmam até etiqueta inexistente. Credencial errada volta HTTP 200 com erro em `ListaErros`, e não 401 (veja [Bloquear e liberar](#bloquear-e-liberar-uma-postagem)).
+- **A exclusão exige bloqueio antes**: a postagem criada pelo `PostarObjeto` fica "Liberado para download" e só pode ser excluída depois de bloqueada.
 - **HTTP 400** para erros de validação e **401** para credenciais ou perfil inválidos. O manual não deixa isso claro.
 - A homologação aceita dados que os Correios e a SEFAZ recusam depois, como emoji na descrição, item acima de R$ 100 mil e CPF inválido. A validação local do SDK bloqueia esses casos.
 
