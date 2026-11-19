@@ -4,11 +4,38 @@
 
 **v0.3.0 lançada em 13/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook): `excluirPostagem()`, `situacaoPostagem()` e `verificarCredenciais()` (ver histórico de 13/11/2026). `composer qa` passa, com 174 testes unitários/Laravel. A integração (8 de 8) e a coleção Postman (11 requisições, 31 de 31 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
 
-**Exclusão com sucesso ainda não verificada.** O usuário decidiu **não enviar** o segundo e-mail ao suporte (13/11/2026) e vai testar a exclusão de um envio **em produção**, pelo `marcelo-envios`. Quando houver o resultado, registrar aqui `$resultado->resposta` e o status do objeto antes da exclusão, e trocar a fixture `inferida-200-exclusao-ok.json` por uma captura real (sem dados pessoais).
+**Em desenvolvimento (branch `feat/bloquear-postagem`, local):** `bloquearPostagem()` e `liberarPostagem()` (SOAP). `composer qa` com 187 testes; integração 11 de 11; Postman 14 requisições, 39 de 39 asserções.
 
-**Próximo passo recomendado:** (1) registrar o resultado do teste de exclusão em produção; (2) com a AGF, criar um **perfil de importação só para rastreamento** e usá-lo no `marcelo-envios`: sem ele o ViPP troca a etiqueta enviada; (3) no `marcelo-envios`, atualizar para `^0.3`, ligar `exigirContrato`, usar `ItemConteudo::limparDescricao()`, `exigeContrato()`, `verificarCredenciais()` no "Testar conexão" e `situacaoPostagem(…, BuscarPor::Referencia)` antes de reenviar uma exportação sem resposta.
+**Próximo passo recomendado:** (1) lançar a versão com o bloqueio; (2) no `marcelo-envios`, fazer o primeiro "Bloquear no ViPP" pela API em produção, seguido de "Excluir do ViPP", e registrar aqui `$bloqueio->xml` e o `$resultado->resposta` da exclusão (sem dados pessoais), trocando a fixture `inferida-200-exclusao-ok.json` pela captura real; (3) com a AGF, criar um **perfil de importação só para rastreamento**.
 
 ## Histórico
+
+### 19/11/2026 — segundo relatório do `marcelo-envios` e bloqueio/liberação (SOAP)
+
+O `marcelo-envios` adotou a v0.3.0 (`exigirContrato`, `verificarCredenciais()` no "Testar conexão", `limparDescricao()`, `situacaoPostagem(…, Referencia)` antes de reexportar e `excluirPostagem()`) e mandou o relatório atualizado (`vipp-php-sdk-gaps.md`, itens 7 a 10).
+
+| # | Item do relatório | Feito |
+|---|---|---|
+| 7 | Exclusão: a postagem recém-exportada fica **"Liberado para download"** e a exclusão volta zerada; **depois de bloquear na tela do ViPP, a exclusão funcionou e `excluida()` reconheceu** (produção, 19/11) | README e comentários atualizados: sucesso confirmado; fluxo bloquear e depois excluir. A fixture continua inferida, porque o corpo não foi capturado |
+| 8 | Senha na URL da consulta de situação | README: alerta para proxy, middleware de log, Telescope e APM |
+| 9 | Erro de rede na exclusão: excluiu ou não? | README: repetir é inofensivo mas não confirma; conferir com `situacaoPostagem` (lista vazia esperada, ainda não observada depois de uma exclusão) |
+| 10 | Bloquear/liberar pela API (pedido do dono do app) | **Implementado**: `bloquearPostagem()` e `liberarPostagem()` |
+| 3 | Credenciais do banco | Já estava documentado (README → Laravel) |
+| 4, 5 | Etiqueta divergente e formato do cartão | Sem novidade; continuam `TODO(confirmar)` |
+
+Sondagem na homologação (só etiqueta inexistente e postagens criadas pela própria sondagem, `SQ000380635BR` e `SQ000380649BR`):
+- O WSDL confirma o relatório: serviço em `/PostagemVipp.asmx`, SOAPAction `http://www.visualset.inf.br/{Operacao}`, `StBloqueado`/`StLiberado` obrigatórios, `Descricao` opcional.
+- **Credencial errada → HTTP 200** (não 401) com erro 1030 em `ListaErros` (`Atributo` = `Login`), `StBloqueado` 0, **e o XML ecoa o token**. Sem `PerfilVipp` → erros 1000/1010/1020.
+- **Etiqueta inexistente → `StBloqueado` 1 e "Objeto Bloqueado"**; liberar etiqueta inexistente → `StLiberado` 1. O retorno não prova o efeito.
+- Bloquear uma postagem criada agora: aceito ("Objeto Bloqueado"; repetir também). **A exclusão logo depois continuou zerada**, e a consulta de situação completa não teve **nenhum campo diferente** entre a postagem bloqueada, a liberada e uma antiga. Conclusão: a homologação (perfil 9363) não permite verificar o efeito do bloqueio.
+- SOAPAction inexistente → HTTP 500 com SOAP Fault (`faultstring`); XML malformado → HTTP 400 sem corpo.
+
+Decisões:
+- **Transporte SOAP próprio**: envelope montado com escape XML e lido com `DOMDocument` (`LIBXML_NONET`, sem expandir entidades), enviado pelo mesmo PSR-18. Não depende da extensão `soap`, e os mocks e fixtures dos testes continuam funcionando.
+- Credencial errada no SOAP vira **`AutenticacaoException`** (com `statusCode` 200), como nos outros métodos. Os códigos de credencial ficam em `AutenticacaoException::CODIGOS_CREDENCIAL` (1000, 1002, 1010, 1020, 1030). Outros erros em `ListaErros` voltam como resultado não confirmado.
+- `ResultadoBloqueio::confirmado()` = status 1 sem erros, com a ressalva documentada de que isso não prova o efeito.
+- Liberar não recebe `Descricao`: o tipo `LiberarDownload` não tem esse campo.
+- O escopo do SDK passa a incluir **só essas duas operações SOAP**. `BloquearObjetoCorreios` (o nome sugere bloqueio nos Correios) **não** foi implementado: o efeito é desconhecido e mais arriscado.
 
 ### 13/11/2026 — resposta do suporte da VisualSet e `excluirPostagem()`
 
@@ -155,7 +182,9 @@ Também confirmado: a produção usa a mesma URL padrão (`https://vpsrv.visuals
 - [x] ~~Endpoint de consulta/login~~: o suporte disse que não existe, mas `GetSituacaoPostagem` existe (13/11/2026); ver Backlog.
 - [ ] **TODO(confirmar)**: formato real da resposta de **sucesso** da exclusão (o suporte falou em "IDconhecimento 0/1", e o servidor devolve contagens). Será verificado pelo teste do usuário em produção (13/11/2026). O segundo e-mail ao suporte foi preparado, mas o usuário decidiu não enviar; as perguntas dele continuam como `TODO(confirmar)` nesta lista.
 - [ ] **TODO(confirmar)**: formato de `ListaObjeto` com várias etiquetas no `GetSituacaoPostagem`; valores de `BuscarPor` (`ObservacaoDois`); e se o `204` com `Content-Length: 163` sem corpo é intencional.
-- [ ] **TODO(confirmar)**: significado de `ObjetoEPPN` na resposta da exclusão, e de `BloquearDownloadConhecimento`/`BloquearObjetoCorreios` (resposta contraditória do suporte).
+- [ ] **TODO(confirmar)**: significado de `ObjetoEPPN` na resposta da exclusão, e o efeito de `BloquearObjetoCorreios` (não implementado).
+- [x] `BloquearDownloadConhecimento`/`LiberarDownloadConhecimento`: implementados (19/11/2026). **Pendente:** primeiro uso em produção (bloquear pela API e depois excluir), pelo `marcelo-envios`.
+- [ ] **TODO(confirmar)**: se `situacaoPostagem()` volta vazia depois de uma exclusão real (forma sugerida no README para conferir uma exclusão sem resposta).
 - [x] O servidor de produção é o mesmo `vpsrv.visualset.com.br`, só com outras credenciais (11/11/2026, pela integração do `marcelo-envios`).
 - [ ] Conjunto exato de caracteres aceitos pela SEFAZ na descrição da DC-e.
 - [ ] Eventos Laravel (postagem enviada, válida ou inválida)? Decidir com o usuário.

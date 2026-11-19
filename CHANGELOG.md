@@ -4,6 +4,26 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+A partir do segundo relatório do MARCELO ENVIOS (produção, 16 a 19/11/2026).
+
+### Adicionado
+
+- `VippClient::bloquearPostagem(string $etiqueta, ?string $descricao = null, ?PerfilVipp $perfil = null)` e `liberarPostagem(string $etiqueta, ?PerfilVipp $perfil = null)`, com `ResultadoBloqueio` (`confirmado()`, `status`, `descricao`, `erros`, `xml` com o token mascarado). SOAP `BloquearDownloadConhecimento`/`LiberarDownloadConhecimento` em `/PostagemVipp.asmx`, enviado pelo mesmo cliente PSR-18, sem a extensão `soap`. Bloquear é o que permite excluir uma postagem criada pelo `PostarObjeto`.
+- `VippFake::responderBloqueioCom()`, `bloqueios()`, `liberacoes()` e `resultadoBloqueio()`; Facade `Vipp::bloquearPostagem()` e `Vipp::liberarPostagem()`.
+- `VippConfig::CAMINHO_SOAP` e `urlSoap()`; `Http\Soap` (interno) e `Http\Mascara::segredos()`.
+- `AutenticacaoException::CODIGOS_CREDENCIAL` e o parâmetro `$statusCode`: no SOAP, credencial errada volta HTTP 200 com o erro em `ListaErros`.
+- Fixtures SOAP capturadas da homologação e requisições Postman 12 a 14 (bloquear e liberar etiqueta inexistente, e token errado).
+
+### Alterado
+
+- `ErroVipp::fromArray()` lê o campo também de `Atributo`, nome usado pelo SOAP.
+- **Quem implementa `VippClientInterface` por conta própria precisa adicionar `bloquearPostagem()` e `liberarPostagem()`.**
+
+### Documentação
+
+- Exclusão com sucesso **confirmada em produção** (19/11/2026), depois de bloquear a postagem na tela do ViPP. O README passa a indicar o fluxo bloquear e depois excluir, e explica como conferir uma exclusão que ficou sem resposta.
+- README: seção "Bloquear e liberar uma postagem" e cuidados com ferramentas que registram URLs (proxy, Telescope, APM) na consulta de situação.
+
 ## [0.3.0] - 2026-11-13
 
 Exclusão, consulta de situação e teste de credenciais, sobre endpoints que não constam no manual do ViPP.
