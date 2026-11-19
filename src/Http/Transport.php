@@ -45,6 +45,21 @@ final readonly class Transport
     }
 
     /**
+     * POST de um envelope SOAP 1.1 (bloqueio e liberação). O token vai no corpo, não na URL.
+     *
+     * @throws TransporteException
+     */
+    public function postXml(string $url, string $xml, string $soapAction): RespostaHttp
+    {
+        $request = $this->requestFactory->createRequest('POST', $url)
+            ->withHeader('Content-Type', 'text/xml; charset=utf-8')
+            ->withHeader('SOAPAction', '"'.$soapAction.'"')
+            ->withBody($this->streamFactory->createStream($xml));
+
+        return $this->enviar($request);
+    }
+
+    /**
      * DELETE sem corpo: o DeleteConhecimento recebe usuário, token e etiqueta em cabeçalhos.
      *
      * @param array<string, string> $cabecalhos

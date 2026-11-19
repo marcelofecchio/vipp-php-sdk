@@ -10,6 +10,7 @@ use MarceloFecchio\Vipp\Enum\BuscarPor;
 use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Postagem\Postagem;
 use MarceloFecchio\Vipp\Resultado\ErroVipp;
+use MarceloFecchio\Vipp\Resultado\ResultadoBloqueio;
 use MarceloFecchio\Vipp\Resultado\ResultadoConexao;
 use MarceloFecchio\Vipp\Resultado\ResultadoExclusao;
 use MarceloFecchio\Vipp\Resultado\ResultadoPostagem;
@@ -39,6 +40,15 @@ final class VippFake implements VippClientInterface
 
     /** @var list<ResultadoExclusao|Throwable> */
     private array $filaExclusao = [];
+
+    /** @var list<ResultadoBloqueio|Throwable> */
+    private array $filaBloqueio = [];
+
+    /** @var list<string> */
+    private array $bloqueios = [];
+
+    /** @var list<string> */
+    private array $liberacoes = [];
 
     /** @var list<ResultadoConexao|Throwable> */
     private array $filaConexao = [];
@@ -101,12 +111,7 @@ final class VippFake implements VippClientInterface
 
     public function excluirPostagem(string $etiqueta, ?PerfilVipp $perfil = null): ResultadoExclusao
     {
-        $etiqueta = (string) Normaliza::codigo($etiqueta);
-
-        if ($this->validar && ($erro = Etiqueta::erro($etiqueta)) !== null) {
-            throw ValidacaoException::campo('Etiqueta', $erro);
-        }
-
+        $etiqueta = $this->etiquetaValidada($etiqueta);
         $this->exclusoes[] = $etiqueta;
 
         $resposta = array_shift($this->filaExclusao);
@@ -136,6 +141,71 @@ final class VippFake implements VippClientInterface
             'ArquivosExcluidos' => 0,
             'ObjetoEPPN' => 0,
         ], 200, $etiqueta);
+    }
+
+    /**
+     * Programa as próximas respostas de `bloquearPostagem()` e `liberarPostagem()` (uma fila para os dois).
+     * Sem programação, o pedido é confirmado.
+     */
+    public function responderBloqueioCom(ResultadoBloqueio|Throwable ...$respostas): self
+    {
+        array_push($this->filaBloqueio, ...$respostas);
+
+        return $this;
+    }
+
+    public function bloquearPostagem(string $etiqueta, ?string $descricao = null, ?PerfilVipp $perfil = null): ResultadoBloqueio
+    {
+        $etiqueta = $this->etiquetaValidada($etiqueta);
+        $this->bloqueios[] = $etiqueta;
+
+        return $this->proximoBloqueio($etiqueta, ResultadoBloqueio::BLOQUEIO);
+    }
+
+    public function liberarPostagem(string $etiqueta, ?PerfilVipp $perfil = null): ResultadoBloqueio
+    {
+        $etiqueta = $this->etiquetaValidada($etiqueta);
+        $this->liberacoes[] = $etiqueta;
+
+        return $this->proximoBloqueio($etiqueta, ResultadoBloqueio::LIBERACAO);
+    }
+
+    /**
+     * Etiquetas recebidas por `bloquearPostagem()`, em ordem.
+     *
+     * @return list<string>
+     */
+    public function bloqueios(): array
+    {
+        return $this->bloqueios;
+    }
+
+    /**
+     * Etiquetas recebidas por `liberarPostagem()`, em ordem.
+     *
+     * @return list<string>
+     */
+    public function liberacoes(): array
+    {
+        return $this->liberacoes;
+    }
+
+    /**
+     * @param string $operacao `ResultadoBloqueio::BLOQUEIO` ou `ResultadoBloqueio::LIBERACAO`
+     */
+    public static function resultadoBloqueio(
+        string $etiqueta = 'SQ000000005BR',
+        bool $confirmado = true,
+        string $operacao = ResultadoBloqueio::BLOQUEIO,
+    ): ResultadoBloqueio {
+        return new ResultadoBloqueio(
+            etiqueta: $etiqueta,
+            operacao: $operacao,
+            status: $confirmado ? 1 : 0,
+            descricao: $confirmado && $operacao === ResultadoBloqueio::BLOQUEIO ? 'Objeto Bloqueado' : null,
+            erros: [],
+            httpStatus: 200,
+        );
     }
 
     /**
@@ -282,6 +352,28 @@ final class VippFake implements VippClientInterface
             'IdStatusPostagem' => 0,
             'StatusPostagem' => 'Invalida',
         ], 400);
+    }
+
+    private function etiquetaValidada(string $etiqueta): string
+    {
+        $etiqueta = (string) Normaliza::codigo($etiqueta);
+
+        if ($this->validar && ($erro = Etiqueta::erro($etiqueta)) !== null) {
+            throw ValidacaoException::campo('Etiqueta', $erro);
+        }
+
+        return $etiqueta;
+    }
+
+    private function proximoBloqueio(string $etiqueta, string $operacao): ResultadoBloqueio
+    {
+        $resposta = array_shift($this->filaBloqueio);
+
+        return match (true) {
+            $resposta instanceof Throwable => throw $resposta,
+            $resposta instanceof ResultadoBloqueio => $resposta,
+            default => self::resultadoBloqueio($etiqueta, true, $operacao),
+        };
     }
 
     private function proximaEtiqueta(): string

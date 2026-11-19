@@ -8,8 +8,8 @@ use MarceloFecchio\Vipp\Support\Leitor;
 
 /**
  * Resultado de `excluirPostagem()`. O ViPP só exclui objetos pré-postados com status "aguardando liberação" (informação
- * do suporte da VisualSet). Etiqueta inexistente ou em outro status NÃO é erro: volta HTTP 200 com tudo zerado.
- * Confira sempre `excluida()`.
+ * do suporte da VisualSet; em produção, exige bloquear a postagem antes). Etiqueta inexistente ou em outro status NÃO é
+ * erro: volta HTTP 200 com tudo zerado. Confira sempre `excluida()` (sucesso confirmado em produção em 19/11/2026).
  */
 final readonly class ResultadoExclusao
 {

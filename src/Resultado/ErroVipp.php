@@ -41,7 +41,8 @@ final readonly class ErroVipp implements Stringable
 
         return new self(
             codigoErro: $codigo,
-            campo: Leitor::texto($dados, 'Campo'),
+            // O SOAP chama o campo de `Atributo`.
+            campo: Leitor::texto($dados, 'Campo') ?? Leitor::texto($dados, 'Atributo'),
             descricao: $descricao ?? self::descricaoPadrao($codigo),
             tipoErro: Leitor::inteiro($dados, 'TipoErro'),
             descricaoTipoErro: Leitor::texto($dados, 'DescricaoTipoErro'),

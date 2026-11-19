@@ -12,6 +12,7 @@ use MarceloFecchio\Vipp\Exceptions\RespostaInvalidaException;
 use MarceloFecchio\Vipp\Exceptions\TransporteException;
 use MarceloFecchio\Vipp\Exceptions\ValidacaoException;
 use MarceloFecchio\Vipp\Postagem\Postagem;
+use MarceloFecchio\Vipp\Resultado\ResultadoBloqueio;
 use MarceloFecchio\Vipp\Resultado\ResultadoConexao;
 use MarceloFecchio\Vipp\Resultado\ResultadoExclusao;
 use MarceloFecchio\Vipp\Resultado\ResultadoPostagem;
@@ -39,6 +40,7 @@ interface VippClientInterface
     /**
      * Exclui uma postagem pela etiqueta (`DeleteConhecimento`). O ViPP só exclui objetos pré-postados com status
      * "aguardando liberação"; para qualquer outra etiqueta responde 200 com tudo zerado (`excluida()` falso).
+     * A postagem criada pelo `PostarObjeto` fica "Liberado para download": bloqueie antes com `bloquearPostagem()`.
      * A etiqueta excluída não volta a ficar livre: é preciso refazer a postagem.
      *
      * @param PerfilVipp|null $perfil sobrescreve o perfil da configuração só nesta chamada (usuário e token)
@@ -50,6 +52,34 @@ interface VippClientInterface
      * @throws RespostaInvalidaException resposta fora do formato esperado
      */
     public function excluirPostagem(string $etiqueta, ?PerfilVipp $perfil = null): ResultadoExclusao;
+
+    /**
+     * Bloqueia o download da postagem (SOAP `BloquearDownloadConhecimento`), o que a deixa "aguardando liberação" e
+     * permite excluí-la com `excluirPostagem()` (fluxo confirmado em produção com o bloqueio feito na tela do ViPP).
+     * `confirmado()` só diz que o ViPP aceitou o pedido: confira o efeito tentando a exclusão.
+     *
+     * @param string|null $descricao motivo opcional, gravado no ViPP
+     * @param PerfilVipp|null $perfil sobrescreve o perfil da configuração só nesta chamada
+     *
+     * @throws ValidacaoException etiqueta com formato ou dígito verificador inválido (nada foi enviado)
+     * @throws AutenticacaoException credencial recusada (o SOAP responde HTTP 200 com o erro em `ListaErros`)
+     * @throws HttpException SOAP Fault (HTTP 500) e outros erros HTTP
+     * @throws TransporteException falha de rede
+     * @throws RespostaInvalidaException resposta fora do formato esperado
+     */
+    public function bloquearPostagem(string $etiqueta, ?string $descricao = null, ?PerfilVipp $perfil = null): ResultadoBloqueio;
+
+    /**
+     * Libera de novo o download de uma postagem bloqueada (SOAP `LiberarDownloadConhecimento`). Uma postagem liberada
+     * não pode ser excluída.
+     *
+     * @throws ValidacaoException etiqueta com formato ou dígito verificador inválido (nada foi enviado)
+     * @throws AutenticacaoException credencial recusada
+     * @throws HttpException SOAP Fault (HTTP 500) e outros erros HTTP
+     * @throws TransporteException falha de rede
+     * @throws RespostaInvalidaException resposta fora do formato esperado
+     */
+    public function liberarPostagem(string $etiqueta, ?PerfilVipp $perfil = null): ResultadoBloqueio;
 
     /**
      * Confere usuário e token sem criar postagem (usa a consulta `GetSituacaoPostagem` com uma etiqueta que não existe).

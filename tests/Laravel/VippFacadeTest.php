@@ -69,3 +69,12 @@ it('Vipp::verificarCredenciais() e Vipp::situacaoPostagem() usam o fake', functi
         ->and(Vipp::situacaoPostagem('ME-9', BuscarPor::Referencia)[0]->etiqueta)->toBe('SQ000352886BR')
         ->and($fake->consultas())->toBe(['ME-9']);
 });
+
+it('Vipp::bloquearPostagem() e Vipp::liberarPostagem() usam o fake', function (): void {
+    $fake = Vipp::fake();
+
+    expect(Vipp::bloquearPostagem('SQ000352886BR')->confirmado())->toBeTrue()
+        ->and(Vipp::liberarPostagem('SQ000352886BR')->confirmado())->toBeTrue()
+        ->and($fake->bloqueios())->toBe(['SQ000352886BR'])
+        ->and($fake->liberacoes())->toBe(['SQ000352886BR']);
+});
