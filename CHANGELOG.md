@@ -4,7 +4,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
-A partir do segundo relatório do MARCELO ENVIOS (produção, 16 a 19/11/2026).
+## [0.4.0] - 2026-11-19
+
+Bloqueio e liberação de postagens, a partir do segundo relatório do MARCELO ENVIOS (produção, 16 a 19/11/2026).
 
 ### Adicionado
 
@@ -90,7 +92,8 @@ Primeira versão pública.
 - Integração Laravel 12/13: `VippServiceProvider`, `config/vipp.php` e Facade `Vipp` com `fake()`.
 - Coleção e ambiente Postman gerados a partir dos DTOs.
 
-[Não lançado]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.3.0...HEAD
+[Não lançado]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/marcelofecchio/vipp-php-sdk/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/marcelofecchio/vipp-php-sdk/releases/tag/v0.1.0

@@ -2,11 +2,9 @@
 
 ## Estado atual
 
-**v0.3.0 lançada em 13/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook): `excluirPostagem()`, `situacaoPostagem()` e `verificarCredenciais()` (ver histórico de 13/11/2026). `composer qa` passa, com 174 testes unitários/Laravel. A integração (8 de 8) e a coleção Postman (11 requisições, 31 de 31 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
+**v0.4.0 lançada em 19/11/2026** (PR, CI, tag, release no GitHub e Packagist via webhook): `bloquearPostagem()` e `liberarPostagem()` (SOAP), além do que veio na v0.3.0 (`excluirPostagem()`, `situacaoPostagem()`, `verificarCredenciais()`). `composer qa` passa, com 187 testes unitários/Laravel. A integração (11 de 11) e a coleção Postman (14 requisições, 39 de 39 asserções) passam contra a homologação. O `marcelo-envios` exporta para o ViPP de **produção** (ver "Comportamento observado em produção").
 
-**Em desenvolvimento (branch `feat/bloquear-postagem`, local):** `bloquearPostagem()` e `liberarPostagem()` (SOAP). `composer qa` com 187 testes; integração 11 de 11; Postman 14 requisições, 39 de 39 asserções.
-
-**Próximo passo recomendado:** (1) lançar a versão com o bloqueio; (2) no `marcelo-envios`, fazer o primeiro "Bloquear no ViPP" pela API em produção, seguido de "Excluir do ViPP", e registrar aqui `$bloqueio->xml` e o `$resultado->resposta` da exclusão (sem dados pessoais), trocando a fixture `inferida-200-exclusao-ok.json` pela captura real; (3) com a AGF, criar um **perfil de importação só para rastreamento**.
+**Próximo passo recomendado:** (1) no `marcelo-envios`, atualizar para `^0.4` e fazer o primeiro "Bloquear no ViPP" pela API em produção, seguido de "Excluir do ViPP", e registrar aqui `$bloqueio->xml` e o `$resultado->resposta` da exclusão (sem dados pessoais), trocando a fixture `inferida-200-exclusao-ok.json` pela captura real; (2) com a AGF, criar um **perfil de importação só para rastreamento**.
 
 ## Histórico
 
